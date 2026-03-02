@@ -1,0 +1,6 @@
+@DeuxOrders.API_HostAddress = http://localhost:5047
+
+GET {{DeuxOrders.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

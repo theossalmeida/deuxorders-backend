@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="DeuxOrders.API/DeuxOrders.API.csproj" />
+  <Project Path="DeuxOrders.Application/DeuxOrders.Application.csproj" />
+  <Project Path="DeuxOrders.Domain/DeuxOrders.Domain.csproj" />
+  <Project Path="DeuxOrders.Infrastructure/DeuxOrders.Infrastructure.csproj" />
+</Solution>
