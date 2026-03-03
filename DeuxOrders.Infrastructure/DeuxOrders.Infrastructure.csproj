@@ -1,6 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\DeuxOrders.Application\DeuxOrders.Application.csproj" />
     <ProjectReference Include="..\DeuxOrders.Domain\DeuxOrders.Domain.csproj" />
   </ItemGroup>

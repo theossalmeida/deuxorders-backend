@@ -1,10 +1,4 @@
-﻿using DeuxOrders.Domain.Enums;
-using System;
-using System.Collections.Generic;
-using System.Net.NetworkInformation;
-using System.Text;
-
-namespace DeuxOrders.Domain.Entities
+﻿namespace DeuxOrders.Domain.Entities
 {
     public class OrderItem
     {
@@ -34,6 +28,8 @@ namespace DeuxOrders.Domain.Entities
             ProductId = productId;
             Quantity = quantity;
             UnitPrice = unitPrice;
+            CreatedAt = DateTime.UtcNow;
+            UpdatedAt = DateTime.UtcNow;
             TotalPaid = Quantity * UnitPrice;
         }
 

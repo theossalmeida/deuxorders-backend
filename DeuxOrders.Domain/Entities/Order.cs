@@ -1,9 +1,4 @@
 ﻿using DeuxOrders.Domain.Enums;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Text;
-using System.Linq;
 
 namespace DeuxOrders.Domain.Entities
 {

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace DeuxOrders.Domain.Entities
+﻿namespace DeuxOrders.Domain.Entities
 {
     public class Product
     {
@@ -11,6 +7,13 @@ namespace DeuxOrders.Domain.Entities
             if (!ProductStatus) { throw new InvalidOperationException("Não é possível desativar um produto que já está inativo.");}
             ProductStatus = false;
         }
+
+        public void SetDescription(string description)
+        {
+            if (description == null) throw new InvalidOperationException("Não é possível a definição do produto ser nula.");
+            Description = description;
+        }
+
         public Guid Id { get; private set; }
         public string Name { get; private set; }
         public string? Description { get; private set; }
