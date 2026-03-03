@@ -1,8 +1,10 @@
 ﻿using DeuxOrders.Domain.Entities;
 using DeuxOrders.Domain.Enums;
 using DeuxOrders.Domain.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+[Authorize]
 [ApiController]
 [Route("api/v1/orders")]
 public class OrderController : ControllerBase

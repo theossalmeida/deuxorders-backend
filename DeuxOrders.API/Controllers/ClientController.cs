@@ -1,7 +1,9 @@
 ﻿using DeuxOrders.Domain.Entities;
 using DeuxOrders.Domain.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+[Authorize]
 [ApiController]
 [Route("api/v1/clients")]
 public class ClientController : ControllerBase

@@ -23,6 +23,9 @@
 
         public Product(string name)
         {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Nome não pode ser nulo ou vazio.");
+
             Id = Guid.NewGuid();
             ProductStatus = true;
             CreatedAt = DateTime.UtcNow;
