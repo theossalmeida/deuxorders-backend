@@ -31,5 +31,12 @@ namespace DeuxOrders.Infrastructure.Repositories
             _context.Products.Update(product);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<IEnumerable<Product>> GetByManyIdsAsync(IEnumerable<Guid> ids)
+        {
+            return await _context.Products
+                .Where(p => ids.Contains(p.Id))
+                .ToListAsync();
+        }
     }
 }

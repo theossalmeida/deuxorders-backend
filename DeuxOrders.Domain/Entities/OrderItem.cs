@@ -12,6 +12,16 @@
             ItemCanceled = true;
         }
 
+        public void UpdateQuantity(int increment)
+        { 
+            if (increment == 0) throw new InvalidOperationException("Não é possível alterar a quantidade em 0.");
+            if (Quantity + increment <= 0) throw new InvalidOperationException("Não é possível descontar mais do que havia no pedido.");
+
+            Quantity += increment;
+            TotalPaid = Quantity * UnitPrice;
+            UpdatedAt = DateTime.UtcNow; 
+        }
+
         public Guid ProductId { get; private set; }
         public Guid OrderId { get; private set; }
         public DateTime CreatedAt { get; private set; }

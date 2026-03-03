@@ -1,4 +1,5 @@
 ﻿using DeuxOrders.Domain.Entities;
+using DeuxOrders.Domain.Enums;
 using DeuxOrders.Domain.Interfaces;
 using DeuxOrders.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,24 @@ namespace DeuxOrders.Infrastructure.Repositories
         {
             _context.Orders.Update(order);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<PagedResult<Order>> GetAllAsync(int pageNumber, int pageSize, OrderStatus? status = null)
+        {
+            var query = _context.Orders.Include(o => o.Items).AsQueryable();
+
+            if (status.HasValue)
+                query = query.Where(o => o.Status == status.Value);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(o => o.CreatedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<Order>(items, totalCount, pageNumber, pageSize);
         }
     }
 }

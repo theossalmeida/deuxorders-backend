@@ -16,11 +16,80 @@ namespace DeuxOrders.Domain.Entities
             Status = OrderStatus.Completed;
         }
 
+        public void MarkAsCanceled()
+        {
+            if (Status == OrderStatus.Completed)
+                throw new InvalidOperationException("Não é possível cancelar um pedido que já foi concluído.");
+
+            if (Status == OrderStatus.Canceled)
+                throw new InvalidOperationException("Não é possível cancelar um pedido que já foi cancelado.");
+
+            Status = OrderStatus.Canceled;
+            UpdatedAt = DateTime.UtcNow;
+        }
+
+        public void AddItem(Guid productId, int quantity, int unitPrice)
+        {
+            if (Status != OrderStatus.Pending)
+                throw new InvalidOperationException("Não é possível adicionar itens a um pedido que não está pendente.");
+
+            var existingItem = _items.FirstOrDefault(x => x.ProductId == productId);
+
+            if (existingItem != null)
+            {
+                existingItem.UpdateQuantity(quantity);
+            }
+            else
+            {
+                _items.Add(new OrderItem(productId, quantity, unitPrice));
+            }
+
+            RecalculateTotal();
+        }
+
+        public void CancelItem(Guid productId)
+        {
+            if (Status != OrderStatus.Pending)
+                throw new InvalidOperationException("Só é permitido cancelar itens de pedidos pendentes.");
+
+            var item = _items.FirstOrDefault(x => x.ProductId == productId);
+
+            if (item == null)
+                throw new InvalidOperationException("Item não encontrado no pedido.");
+
+            item.MarkAsCanceled();
+            RecalculateTotal();
+        }
+
+        private void RecalculateTotal()
+        {
+            TotalPaid = _items.Where(i => !i.ItemCanceled).Sum(i => i.TotalPaid);
+            UpdatedAt = DateTime.UtcNow;
+        }
+
+        public void UpdateItemQuantity(Guid productId, int increment)
+        {
+            if (Status != OrderStatus.Pending)
+                throw new InvalidOperationException("Não é possível alterar quantidades de um pedido que não está pendente.");
+
+            var item = _items.FirstOrDefault(x => x.ProductId == productId);
+            if (item == null)
+                throw new InvalidOperationException("Item não encontrado no pedido.");
+
+            if (item.ItemCanceled)
+                throw new InvalidOperationException("Não é possível alterar a quantidade de um item cancelado.");
+
+            item.UpdateQuantity(increment);
+
+            RecalculateTotal();
+        }
+
         public Guid Id { get; private set; }
         public DateTime CreatedAt { get; private set; }
         public DateTime? UpdatedAt { get; private set; }
         public OrderStatus Status { get; private set; }
         public Guid ClientId { get; private set; }
+        public int TotalPaid { get; private set; }
 
         public Order(Guid clientId)
         {
@@ -32,20 +101,6 @@ namespace DeuxOrders.Domain.Entities
 
         private readonly List<OrderItem> _items = new();
         public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
-
-        public void AddItem(Guid productId, int quantity, int unitPrice)
-        {
-
-            var existingItem = _items.FirstOrDefault(x => x.ProductId == productId);
-
-            if (existingItem != null)
-            {
-                _items.Remove(existingItem);
-            }
-
-            _items.Add(new OrderItem(productId, quantity, unitPrice));
-            UpdatedAt = DateTime.UtcNow;
-        }
 
         private Order() { }
 

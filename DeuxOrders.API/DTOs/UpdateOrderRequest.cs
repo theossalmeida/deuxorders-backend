@@ -1,0 +1,1 @@
+﻿public record UpdateItemQuantityRequest(int Increment);

@@ -1,4 +1,5 @@
 ﻿using DeuxOrders.Domain.Entities;
+using DeuxOrders.Domain.Enums;
 using DeuxOrders.Domain.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -25,29 +26,108 @@ public class OrderController : ControllerBase
     public async Task<IActionResult> Create(CreateOrderRequest request)
     {
         var client = await _clientRepository.GetByIdAsync(request.ClientId);
+        if (client == null || !client.Status)
+            return BadRequest("Cliente inválido ou inativo.");
 
-        if (client == null)
-            return BadRequest("Cliente do pedido não existe.");
-        
-        if (!client.Status)
-            return BadRequest("Cliente do pedido está inativo.");
+        var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
+        var dbProducts = await _productRepository.GetByManyIdsAsync(productIds);
 
         var order = new Order(request.ClientId);
 
         foreach (var item in request.Items)
         {
-            var product = await _productRepository.GetByIdAsync(item.ProductId);
+            // Busca o produto correspondente na lista que veio do banco
+            var product = dbProducts.FirstOrDefault(p => p.Id == item.ProductId);
+
             if (product == null)
-                return BadRequest("Produto do pedido não existe.");
+                return BadRequest($"Produto {item.ProductId} não encontrado.");
 
             if (!product.ProductStatus)
-                return BadRequest("Produto do pedido está inativo.");
+                return BadRequest($"Produto {product.Name} está inativo.");
+
             order.AddItem(item.ProductId, item.Quantity, item.UnitPrice);
         }
 
         await _repository.AddAsync(order);
-
         return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
+    }
+
+    [HttpPatch("{id}/complete")]
+    public async Task<IActionResult> Complete(Guid id)
+    {
+        var order = await _repository.GetByIdAsync(id);
+        if (order == null) return NotFound();
+
+        try
+        {
+            order.MarkAsCompleted();
+            await _repository.UpdateAsync(order);
+            return Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPatch("{id}/cancel")]
+    public async Task<IActionResult> Cancel(Guid id)
+    {
+        var order = await _repository.GetByIdAsync(id);
+        if (order == null) return NotFound();
+
+        try
+        {
+            order.MarkAsCanceled();
+            await _repository.UpdateAsync(order);
+            return Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPatch("{id}/items/{productId}/cancel")]
+    public async Task<IActionResult> CancelItem(Guid id, Guid productId)
+    {
+        var order = await _repository.GetByIdAsync(id);
+        var product = await _productRepository.GetByIdAsync(productId);
+        if (order == null) return NotFound("Pedido não encontrado.");
+        if (product == null) return NotFound("Produto não encontrado no pedido.");
+
+        try
+        {
+            
+            order.CancelItem(productId);
+
+            await _repository.UpdateAsync(order);
+
+            return Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPatch("{id}/items/{productId}/quantity")]
+    public async Task<IActionResult> UpdateItemQuantity(Guid id, Guid productId, [FromBody] UpdateItemQuantityRequest request)
+    {
+        var order = await _repository.GetByIdAsync(id);
+        if (order == null) return NotFound("Pedido não encontrado.");
+
+        try
+        {
+            order.UpdateItemQuantity(productId, request.Increment);
+
+            await _repository.UpdateAsync(order);
+            return Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpGet("{id}")]
@@ -56,5 +136,14 @@ public class OrderController : ControllerBase
         var order = await _repository.GetByIdAsync(id);
         if (order == null) return NotFound();
         return Ok(order);
+    }
+
+    [HttpGet("all")]
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int size = 10, [FromQuery] OrderStatus? status = null)
+    {
+        if (size > 100) size = 100;
+
+        var result = await _repository.GetAllAsync(page, size, status);
+        return Ok(result);
     }
 }
