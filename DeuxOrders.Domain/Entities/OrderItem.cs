@@ -18,7 +18,7 @@
             if (Quantity + increment <= 0) throw new InvalidOperationException("Não é possível descontar mais do que havia no pedido.");
 
             Quantity += increment;
-            TotalPaid = Quantity * UnitPrice;
+            TotalPaid = Quantity * PaidUnitPrice;
             UpdatedAt = DateTime.UtcNow; 
         }
 
@@ -27,20 +27,23 @@
         public DateTime CreatedAt { get; private set; }
         public DateTime? UpdatedAt { get; private set; }
         public Boolean ItemCanceled { get; private set; }
-        public int UnitPrice { get; private set; }
+        public int BaseUnitPrice { get; private set; }
+        public int PaidUnitPrice { get; private set; }
         public int Quantity { get; private set; }
         public int TotalPaid { get; private set; }
-        public OrderItem(Guid productId, int quantity, int unitPrice)
+        public int TotalValue { get; private set; }
+        public OrderItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice)
         {
             if (quantity <= 0) throw new ArgumentException("Quantidade deve ser maior que zero.");
-            if (unitPrice < 0) throw new ArgumentException("Preço não pode ser negativo.");
+            if (paidUnitPrice < 0) throw new ArgumentException("Preço não pode ser negativo.");
 
             ProductId = productId;
             Quantity = quantity;
-            UnitPrice = unitPrice;
+            PaidUnitPrice = paidUnitPrice;
             CreatedAt = DateTime.UtcNow;
             UpdatedAt = DateTime.UtcNow;
-            TotalPaid = Quantity * UnitPrice;
+            TotalPaid = Quantity * paidUnitPrice;
+            TotalValue = Quantity * baseUnitPrice;
         }
 
         private OrderItem() { }

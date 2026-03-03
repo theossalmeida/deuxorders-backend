@@ -31,16 +31,14 @@ namespace DeuxOrders.Infrastructure.Repositories
                 .FirstOrDefaultAsync(o => o.Username == username);
         }
 
-        public async Task AddAsync(User user)
+        public void Add(User user)
         {
-            await _context.Users.AddAsync(user);
-            await _context.SaveChangesAsync();
+            _context.Users.Add(user);
         }
 
-        public async Task UpdateAsync(User user)
+        public void Update(User user)
         {
             _context.Users.Update(user);
-            await _context.SaveChangesAsync();
         }
     }
 }

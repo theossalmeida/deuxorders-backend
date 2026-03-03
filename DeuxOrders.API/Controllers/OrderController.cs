@@ -12,16 +12,18 @@ public class OrderController : ControllerBase
     private readonly IOrderRepository _repository;
     private readonly IClientRepository _clientRepository;
     private readonly IProductRepository _productRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
     public OrderController(
         IOrderRepository repository,
         IClientRepository clientRepository,
-        IProductRepository productRepository
-        )
+        IProductRepository productRepository,
+        IUnitOfWork unitOfWork)
     {
         _repository = repository;
         _clientRepository = clientRepository;
         _productRepository = productRepository;
+        _unitOfWork = unitOfWork;
     }
 
     [HttpPost("new")]
@@ -38,7 +40,6 @@ public class OrderController : ControllerBase
 
         foreach (var item in request.Items)
         {
-            // Busca o produto correspondente na lista que veio do banco
             var product = dbProducts.FirstOrDefault(p => p.Id == item.ProductId);
 
             if (product == null)
@@ -47,10 +48,15 @@ public class OrderController : ControllerBase
             if (!product.ProductStatus)
                 return BadRequest($"Produto {product.Name} está inativo.");
 
-            order.AddItem(item.ProductId, item.Quantity, item.UnitPrice);
+            order.AddItem(item.ProductId, item.Quantity, item.UnitPrice, product.Price);
         }
 
-        await _repository.AddAsync(order);
+        _repository.Add(order);
+
+        var success = await _unitOfWork.CommitAsync();
+        if (!success)
+            return BadRequest("Falha ao salvar o pedido no banco de dados.");
+
         return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
     }
 
@@ -60,16 +66,12 @@ public class OrderController : ControllerBase
         var order = await _repository.GetByIdAsync(id);
         if (order == null) return NotFound();
 
-        try
-        {
-            order.MarkAsCompleted();
-            await _repository.UpdateAsync(order);
-            return Ok(order);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        order.MarkAsCompleted();
+
+        var success = await _unitOfWork.CommitAsync();
+        if (!success) return BadRequest("Falha ao completar o pedido no banco de dados.");
+
+        return Ok(order);
     }
 
     [HttpPatch("{id}/cancel")]
@@ -78,39 +80,27 @@ public class OrderController : ControllerBase
         var order = await _repository.GetByIdAsync(id);
         if (order == null) return NotFound();
 
-        try
-        {
-            order.MarkAsCanceled();
-            await _repository.UpdateAsync(order);
-            return Ok(order);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        order.MarkAsCanceled();
+
+        var success = await _unitOfWork.CommitAsync();
+        if (!success) return BadRequest("Falha ao cancelar o pedido no banco de dados.");
+
+        return Ok(order);
     }
 
     [HttpPatch("{id}/items/{productId}/cancel")]
     public async Task<IActionResult> CancelItem(Guid id, Guid productId)
     {
         var order = await _repository.GetByIdAsync(id);
-        var product = await _productRepository.GetByIdAsync(productId);
         if (order == null) return NotFound("Pedido não encontrado.");
-        if (product == null) return NotFound("Produto não encontrado no pedido.");
 
-        try
-        {
-            
-            order.CancelItem(productId);
+        order.CancelItem(productId);
 
-            await _repository.UpdateAsync(order);
+        var success = await _unitOfWork.CommitAsync();
+        if (!success)
+            return BadRequest("Falha ao cancelar o item do pedido no banco de dados.");
 
-            return Ok(order);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        return Ok(order);
     }
 
     [HttpPatch("{id}/items/{productId}/quantity")]
@@ -119,17 +109,13 @@ public class OrderController : ControllerBase
         var order = await _repository.GetByIdAsync(id);
         if (order == null) return NotFound("Pedido não encontrado.");
 
-        try
-        {
-            order.UpdateItemQuantity(productId, request.Increment);
+        order.UpdateItemQuantity(productId, request.Increment);
 
-            await _repository.UpdateAsync(order);
-            return Ok(order);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        var success = await _unitOfWork.CommitAsync();
+        if (!success)
+            return BadRequest("Falha ao editar a quantidade do item no pedido no banco de dados.");
+
+        return Ok(order);
     }
 
     [HttpGet("{id}")]
@@ -137,6 +123,7 @@ public class OrderController : ControllerBase
     {
         var order = await _repository.GetByIdAsync(id);
         if (order == null) return NotFound();
+
         return Ok(order);
     }
 

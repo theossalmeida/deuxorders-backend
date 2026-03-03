@@ -6,7 +6,7 @@ namespace DeuxOrders.Domain.Interfaces
     {
         Task<Product?> GetByIdAsync(Guid id);
         Task<IEnumerable<Product>> GetByManyIdsAsync(IEnumerable<Guid> ids);
-        Task AddAsync(Product product);
-        Task UpdateAsync(Product product);
+        void Add(Product product);
+        void Update(Product product);
     }
 }

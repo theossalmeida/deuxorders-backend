@@ -20,16 +20,14 @@ namespace DeuxOrders.Infrastructure.Repositories
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
 
-        public async Task AddAsync(Client client)
+        public void Add(Client client)
         {
-            await _context.Clients.AddAsync(client);
-            await _context.SaveChangesAsync();
+            _context.Clients.Add(client);
         }
 
-        public async Task UpdateAsync(Client client)
+        public void Update(Client client)
         {
             _context.Clients.Update(client);
-            await _context.SaveChangesAsync();
         }
     }
 }

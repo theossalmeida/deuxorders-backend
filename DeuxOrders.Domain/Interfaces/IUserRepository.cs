@@ -7,7 +7,7 @@ namespace DeuxOrders.Domain.Interfaces
         Task<User?> GetByIdAsync(Guid Id);
         Task<User?> GetByEmail(string email);
         Task<User?> GetByUsername(string username);
-        Task AddAsync(User user);
-        Task UpdateAsync(User user);
+        void Add(User user);
+        void Update(User user);
     }
 }

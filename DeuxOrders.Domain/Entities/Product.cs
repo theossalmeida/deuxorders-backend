@@ -18,10 +18,11 @@
         public string Name { get; private set; }
         public string? Description { get; private set; }
         public Boolean ProductStatus { get; private set; }
+        public int Price { get; private set; }
         public DateTime CreatedAt { get; private set; }
         public DateTime UpdatedAt { get; private set; }
 
-        public Product(string name)
+        public Product(string name, int price)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Nome não pode ser nulo ou vazio.");
@@ -31,6 +32,7 @@
             CreatedAt = DateTime.UtcNow;
             UpdatedAt = DateTime.UtcNow;
             Name = name;
+            Price = price;
         }
     }
 }

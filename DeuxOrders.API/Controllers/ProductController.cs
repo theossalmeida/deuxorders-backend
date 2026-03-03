@@ -4,32 +4,34 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 [Authorize]
+[ApiController]
 [Route("api/v1/products")]
 public class ProductController : ControllerBase
 {
     private readonly IProductRepository _repository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public ProductController(IProductRepository repository)
+    public ProductController(IProductRepository repository, IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _unitOfWork = unitOfWork;
     }
 
     [HttpPost("new")]
     public async Task<IActionResult> Create([FromBody] CreateProduct request)
     {
-        if (string.IsNullOrEmpty(request.Name))
-        {
-            return BadRequest("O nome do produto é obrigatório.");
-        }
-
-        var product = new Product(request.Name);
+        var product = new Product(request.Name, request.Price);
 
         if (!string.IsNullOrWhiteSpace(request.Description))
         {
             product.SetDescription(request.Description);
         }
 
-        await _repository.AddAsync(product);
+        _repository.Add(product);
+
+        var success = await _unitOfWork.CommitAsync();
+        if (!success)
+            return BadRequest("Falha ao salvar o produto no banco de dados.");
 
         return CreatedAtRoute("GetProductById", new { id = product.Id }, product);
     }

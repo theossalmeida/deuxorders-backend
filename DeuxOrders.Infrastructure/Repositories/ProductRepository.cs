@@ -13,23 +13,21 @@ namespace DeuxOrders.Infrastructure.Repositories
         {
             _context = context;
         }
-
+            
         public async Task<Product?> GetByIdAsync(Guid id)
         {
             return await _context.Products
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
 
-        public async Task AddAsync(Product product)
+        public void Add(Product product)
         {
-            await _context.Products.AddAsync(product);
-            await _context.SaveChangesAsync();
+            _context.Products.Add(product);
         }
 
-        public async Task UpdateAsync(Product product)
+        public void Update(Product product)
         {
             _context.Products.Update(product);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<IEnumerable<Product>> GetByManyIdsAsync(IEnumerable<Guid> ids)

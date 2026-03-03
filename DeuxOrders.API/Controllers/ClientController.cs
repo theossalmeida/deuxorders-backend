@@ -9,10 +9,12 @@ using Microsoft.AspNetCore.Mvc;
 public class ClientController : ControllerBase
 {
     private readonly IClientRepository _repository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public ClientController(IClientRepository repository)
+    public ClientController(IClientRepository repository, IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _unitOfWork = unitOfWork;
     }
 
     [HttpPost("new")]
@@ -25,7 +27,11 @@ public class ClientController : ControllerBase
             client.SetMobile(request.Mobile);
         }
 
-        await _repository.AddAsync(client);
+        _repository.Add(client);
+
+        var success = await _unitOfWork.CommitAsync();
+        if (!success)
+            return BadRequest("Falha ao salvar o cliente no banco de dados.");
 
         return CreatedAtAction(nameof(GetById), new { id = client.Id }, client);
     }

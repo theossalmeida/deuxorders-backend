@@ -28,7 +28,7 @@ namespace DeuxOrders.Domain.Entities
             UpdatedAt = DateTime.UtcNow;
         }
 
-        public void AddItem(Guid productId, int quantity, int unitPrice)
+        public void AddItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice)
         {
             if (Status != OrderStatus.Pending)
                 throw new InvalidOperationException("Não é possível adicionar itens a um pedido que não está pendente.");
@@ -41,7 +41,7 @@ namespace DeuxOrders.Domain.Entities
             }
             else
             {
-                _items.Add(new OrderItem(productId, quantity, unitPrice));
+                _items.Add(new OrderItem(productId, quantity, paidUnitPrice, baseUnitPrice));
             }
 
             RecalculateTotal();
@@ -63,7 +63,11 @@ namespace DeuxOrders.Domain.Entities
 
         private void RecalculateTotal()
         {
-            TotalPaid = _items.Where(i => !i.ItemCanceled).Sum(i => i.TotalPaid);
+            var activeItems = _items.Where(i => !i.ItemCanceled).ToList();
+
+            TotalPaid = activeItems.Sum(i => i.TotalPaid);
+            TotalValue = activeItems.Sum(i => i.TotalValue);
+
             UpdatedAt = DateTime.UtcNow;
         }
 
@@ -90,6 +94,7 @@ namespace DeuxOrders.Domain.Entities
         public OrderStatus Status { get; private set; }
         public Guid ClientId { get; private set; }
         public int TotalPaid { get; private set; }
+        public int TotalValue { get; private set; }
 
         public Order(Guid clientId)
         {

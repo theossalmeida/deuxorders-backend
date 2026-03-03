@@ -22,21 +22,22 @@ namespace DeuxOrders.Infrastructure.Repositories
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
 
-        public async Task AddAsync(Order order)
+        public void Add(Order order)
         {
-            await _context.Orders.AddAsync(order);
-            await _context.SaveChangesAsync();
+            _context.Orders.Add(order);
         }
 
-        public async Task UpdateAsync(Order order)
+        public void Update(Order order)
         {
             _context.Orders.Update(order);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<PagedResult<Order>> GetAllAsync(int pageNumber, int pageSize, OrderStatus? status = null)
         {
-            var query = _context.Orders.Include(o => o.Items).AsQueryable();
+            var query = _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Items)
+                .AsQueryable();
 
             if (status.HasValue)
                 query = query.Where(o => o.Status == status.Value);

@@ -34,10 +34,8 @@ namespace DeuxOrders.Infrastructure.Data
             // Order mapping
             modelBuilder.Entity<Order>(entity => {
                 entity.ToTable("orders");
-                entity.HasOne<Client>()
-                      .WithMany()
-                      .HasForeignKey(o => o.ClientId)
-                      .IsRequired();
+                entity.Navigation(e => e.Items).HasField("_items");
+                entity.HasOne<Client>().WithMany().HasForeignKey(o => o.ClientId).IsRequired();
                 entity.Property(e => e.TotalPaid).IsRequired();
             });
 
