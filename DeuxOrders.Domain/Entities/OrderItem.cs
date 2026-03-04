@@ -23,6 +23,7 @@
         }
 
         public Guid ProductId { get; private set; }
+        public virtual Product Product { get; private set; } = null;
         public Guid OrderId { get; private set; }
         public DateTime CreatedAt { get; private set; }
         public DateTime? UpdatedAt { get; private set; }
@@ -30,8 +31,8 @@
         public int BaseUnitPrice { get; private set; }
         public int PaidUnitPrice { get; private set; }
         public int Quantity { get; private set; }
-        public int TotalPaid { get; private set; }
-        public int TotalValue { get; private set; }
+        public long TotalPaid { get; private set; }
+        public long TotalValue { get; private set; }
         public OrderItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice)
         {
             if (quantity <= 0) throw new ArgumentException("Quantidade deve ser maior que zero.");
@@ -40,6 +41,7 @@
             ProductId = productId;
             Quantity = quantity;
             PaidUnitPrice = paidUnitPrice;
+            BaseUnitPrice = baseUnitPrice;
             CreatedAt = DateTime.UtcNow;
             UpdatedAt = DateTime.UtcNow;
             TotalPaid = Quantity * paidUnitPrice;

@@ -1,0 +1,37 @@
+﻿using DeuxOrders.Domain.Entities;
+using DeuxOrders.Application.DTOs;
+
+namespace DeuxOrders.Application.Mapping
+{
+    public static class DtoMappingExtensions
+    {
+        public static OrderResponse ToResponse(this Order order, string clientName = "")
+        {
+            return new OrderResponse(
+                order.Id,
+                order.CreatedAt,
+                order.Status,
+                order.ClientId,
+                clientName,
+                (long)order.TotalPaid,
+                (long)order.TotalValue,
+                order.Items.Select(i => i.ToResponse()).ToList()
+            );
+        }
+
+        public static OrderItemResponse ToResponse(this OrderItem item)
+        {
+            return new OrderItemResponse(
+                item.ProductId,
+                item.Product?.Name ?? "Produto não encontrado",
+                item.Quantity,
+                item.PaidUnitPrice,
+                item.BaseUnitPrice,
+                item.ItemCanceled
+            );
+        }
+
+        public static ProductResponse ToResponse(this Product product) =>
+            new ProductResponse(product.Id, product.Name, product.Price, product.ProductStatus);
+    }
+}

@@ -10,20 +10,18 @@ namespace DeuxOrders.Infrastructure.Services
 {
     public class TokenService : ITokenService
     {
-        private readonly IConfiguration _configuration;
+        private readonly byte[] _key;
 
         public TokenService(IConfiguration configuration)
         {
-            _configuration = configuration;
+            var secret = configuration.GetValue<string>("JwtSettings:Secret")
+                ?? throw new InvalidOperationException("JWT Secret não configurada.");
+            _key = Encoding.ASCII.GetBytes(secret);
         }
+
         public string GenerateToken(User user)
         {
-            var secret = _configuration.GetValue<string>("JwtSettings:Secret")
-             ?? throw new InvalidOperationException("JWT Secret não configurada.");
-            var key = Encoding.ASCII.GetBytes(secret);
-
             var tokenHandler = new JwtSecurityTokenHandler();
-
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new[]
@@ -34,7 +32,7 @@ namespace DeuxOrders.Infrastructure.Services
                 }),
                 Expires = DateTime.UtcNow.AddHours(8),
                 SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(key),
+                    new SymmetricSecurityKey(_key),
                     SecurityAlgorithms.HmacSha256Signature)
             };
 

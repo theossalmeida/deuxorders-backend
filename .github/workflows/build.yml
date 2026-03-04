@@ -25,3 +25,5 @@ jobs:
         dotnet build --no-restore
     - name: Test
       run: dotnet test --no-build --verbosity normal
+      env:
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}

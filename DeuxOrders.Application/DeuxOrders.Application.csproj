@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.16.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\DeuxOrders.Domain\DeuxOrders.Domain.csproj" />
   </ItemGroup>
 

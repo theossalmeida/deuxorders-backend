@@ -19,32 +19,25 @@ namespace DeuxOrders.Infrastructure.Repositories
         {
             return await _context.Orders
                 .Include(o => o.Items)
+                    .ThenInclude(i => i.Product)
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
 
-        public void Add(Order order)
-        {
-            _context.Orders.Add(order);
-        }
+        public void Add(Order order) => _context.Orders.Add(order);
 
-        public void Update(Order order)
-        {
-            _context.Orders.Update(order);
-        }
+        public void Update(Order order) => _context.Orders.Update(order);
 
         public async Task<PagedResult<Order>> GetAllAsync(int pageNumber, int pageSize, OrderStatus? status = null)
         {
-            var query = _context.Orders
-                .AsNoTracking()
-                .Include(o => o.Items)
-                .AsQueryable();
+            var baseQuery = _context.Orders.AsNoTracking();
 
             if (status.HasValue)
-                query = query.Where(o => o.Status == status.Value);
+                baseQuery = baseQuery.Where(o => o.Status == status.Value);
 
-            var totalCount = await query.CountAsync();
+            var totalCount = await baseQuery.CountAsync();
 
-            var items = await query
+            var items = await baseQuery
+                .Include(o => o.Items)
                 .OrderByDescending(o => o.CreatedAt)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
