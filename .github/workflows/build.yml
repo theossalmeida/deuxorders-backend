@@ -2,13 +2,17 @@ name: Deux Orders Workflow
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, fix_cicd_workflow ]
   pull_request:
     branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    env:
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      ASPNETCORE_ENVIRONMENT: Development
 
     steps:
     - name: Checkout repository code
@@ -23,7 +27,12 @@ jobs:
       run: |
         dotnet restore
         dotnet build --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
-      env:
-        JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
+    - name: Run Integration Tests
+      run: |
+        if [ -z "$JWT_SECRET" ]; then
+          echo "::error::JWT_SECRET não encontrada! Verifique o Repository Secrets do GitHub."
+          exit 1
+        fi
+        echo "JWT_SECRET detectada (Tamanho: ${#JWT_SECRET} caracteres)."
+        dotnet test --no-build --verbosity normal
