@@ -2,12 +2,13 @@ using DeuxOrders.Domain.Interfaces;
 using DeuxOrders.Infrastructure.Data;
 using DeuxOrders.Infrastructure.Repositories;
 using DeuxOrders.Infrastructure.Services;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using FluentValidation;
-using FluentValidation.AspNetCore;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,7 +60,13 @@ builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 // Controllers config
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+// Services config
+builder.Services.AddScoped<DeuxOrders.Application.Services.OrderService>();
 
 // Application builder
 var app = builder.Build();

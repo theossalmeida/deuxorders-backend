@@ -1,138 +1,109 @@
-﻿using DeuxOrders.Domain.Entities;
+﻿using DeuxOrders.Application.Services;
 using DeuxOrders.Domain.Enums;
 using DeuxOrders.Domain.Interfaces;
+using DeuxOrders.Application.DTOs;
+using DeuxOrders.Application.Mapping;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-[Authorize]
-[ApiController]
-[Route("api/v1/orders")]
-public class OrderController : ControllerBase
+namespace DeuxOrders.API.Controllers
 {
-    private readonly IOrderRepository _repository;
-    private readonly IClientRepository _clientRepository;
-    private readonly IProductRepository _productRepository;
-    private readonly IUnitOfWork _unitOfWork;
-
-    public OrderController(
-        IOrderRepository repository,
-        IClientRepository clientRepository,
-        IProductRepository productRepository,
-        IUnitOfWork unitOfWork)
+    [Authorize]
+    [ApiController]
+    [Route("api/v1/orders")]
+    public class OrderController : ControllerBase
     {
-        _repository = repository;
-        _clientRepository = clientRepository;
-        _productRepository = productRepository;
-        _unitOfWork = unitOfWork;
-    }
+        private readonly IOrderRepository _repository;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly OrderService _orderService;
 
-    [HttpPost("new")]
-    public async Task<IActionResult> Create(CreateOrderRequest request)
-    {
-        var client = await _clientRepository.GetByIdAsync(request.ClientId);
-        if (client == null || !client.Status)
-            return BadRequest("Cliente inválido ou inativo.");
-
-        var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
-        var dbProducts = await _productRepository.GetByManyIdsAsync(productIds);
-
-        var order = new Order(request.ClientId);
-
-        foreach (var item in request.Items)
+        public OrderController(
+            IOrderRepository repository,
+            IUnitOfWork unitOfWork,
+            OrderService orderService)
         {
-            var product = dbProducts.FirstOrDefault(p => p.Id == item.ProductId);
-
-            if (product == null)
-                return BadRequest($"Produto {item.ProductId} não encontrado.");
-
-            if (!product.ProductStatus)
-                return BadRequest($"Produto {product.Name} está inativo.");
-
-            order.AddItem(item.ProductId, item.Quantity, item.UnitPrice, product.Price);
+            _repository = repository;
+            _unitOfWork = unitOfWork;
+            _orderService = orderService;
         }
 
-        _repository.Add(order);
+        [HttpPost("new")]
+        public async Task<IActionResult> Create([FromBody] CreateOrderRequest request)
+        {
+            var order = await _orderService.CreateOrderAsync(request);
 
-        var success = await _unitOfWork.CommitAsync();
-        if (!success)
-            return BadRequest("Falha ao salvar o pedido no banco de dados.");
+            return CreatedAtAction(nameof(GetById), new { id = order.Id }, order.ToResponse());
+        }
 
-        return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
-    }
+        [HttpPatch("{id}/complete")]
+        public async Task<IActionResult> Complete(Guid id)
+        {
+            var order = await _repository.GetByIdAsync(id);
+            if (order == null) return NotFound();
 
-    [HttpPatch("{id}/complete")]
-    public async Task<IActionResult> Complete(Guid id)
-    {
-        var order = await _repository.GetByIdAsync(id);
-        if (order == null) return NotFound();
+            order.MarkAsCompleted();
+            if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-        order.MarkAsCompleted();
+            return Ok(order);
+        }
 
-        var success = await _unitOfWork.CommitAsync();
-        if (!success) return BadRequest("Falha ao completar o pedido no banco de dados.");
+        [HttpPatch("{id}/cancel")]
+        public async Task<IActionResult> Cancel(Guid id)
+        {
+            var order = await _repository.GetByIdAsync(id);
+            if (order == null) return NotFound();
 
-        return Ok(order);
-    }
+            order.MarkAsCanceled();
+            if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-    [HttpPatch("{id}/cancel")]
-    public async Task<IActionResult> Cancel(Guid id)
-    {
-        var order = await _repository.GetByIdAsync(id);
-        if (order == null) return NotFound();
+            return Ok(order);
+        }
 
-        order.MarkAsCanceled();
+        [HttpPatch("{id}/items/{productId}/cancel")]
+        public async Task<IActionResult> CancelItem(Guid id, Guid productId)
+        {
+            var order = await _repository.GetByIdAsync(id);
+            if (order == null) return NotFound("Pedido não encontrado.");
 
-        var success = await _unitOfWork.CommitAsync();
-        if (!success) return BadRequest("Falha ao cancelar o pedido no banco de dados.");
+            order.CancelItem(productId);
+            if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-        return Ok(order);
-    }
+            return Ok(order);
+        }
 
-    [HttpPatch("{id}/items/{productId}/cancel")]
-    public async Task<IActionResult> CancelItem(Guid id, Guid productId)
-    {
-        var order = await _repository.GetByIdAsync(id);
-        if (order == null) return NotFound("Pedido não encontrado.");
+        [HttpPatch("{id}/items/{productId}/quantity")]
+        public async Task<IActionResult> UpdateItemQuantity(Guid id, Guid productId, [FromBody] UpdateItemQuantityRequest request)
+        {
+            var order = await _repository.GetByIdAsync(id);
+            if (order == null) return NotFound("Pedido não encontrado.");
 
-        order.CancelItem(productId);
+            try
+            {
+                order.UpdateItemQuantity(productId, request.Increment);
+                if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
+                return Ok(order);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
 
-        var success = await _unitOfWork.CommitAsync();
-        if (!success)
-            return BadRequest("Falha ao cancelar o item do pedido no banco de dados.");
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(Guid id)
+        {
+            var order = await _repository.GetByIdAsync(id);
+            if (order == null) return NotFound();
 
-        return Ok(order);
-    }
+            return Ok(order.ToResponse());
+        }
 
-    [HttpPatch("{id}/items/{productId}/quantity")]
-    public async Task<IActionResult> UpdateItemQuantity(Guid id, Guid productId, [FromBody] UpdateItemQuantityRequest request)
-    {
-        var order = await _repository.GetByIdAsync(id);
-        if (order == null) return NotFound("Pedido não encontrado.");
-
-        order.UpdateItemQuantity(productId, request.Increment);
-
-        var success = await _unitOfWork.CommitAsync();
-        if (!success)
-            return BadRequest("Falha ao editar a quantidade do item no pedido no banco de dados.");
-
-        return Ok(order);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var order = await _repository.GetByIdAsync(id);
-        if (order == null) return NotFound();
-
-        return Ok(order);
-    }
-
-    [HttpGet("all")]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int size = 10, [FromQuery] OrderStatus? status = null)
-    {
-        if (size > 100) size = 100;
-
-        var result = await _repository.GetAllAsync(page, size, status);
-        return Ok(result);
+        [HttpGet("all")]
+        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int size = 10, [FromQuery] OrderStatus? status = null)
+        {
+            if (size > 100) size = 100;
+            var result = await _repository.GetAllAsync(page, size, status);
+            return Ok(result);
+        }
     }
 }
