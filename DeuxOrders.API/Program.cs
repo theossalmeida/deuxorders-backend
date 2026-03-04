@@ -45,6 +45,21 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+// CORS Policy to accept development and production env
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendPolicy", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:3000",
+                "http://127.0.0.1:3000"
+              )
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // Repository config
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
@@ -70,6 +85,9 @@ builder.Services.AddScoped<DeuxOrders.Application.Services.OrderService>();
 
 // Application builder
 var app = builder.Build();
+
+//  CORS
+app.UseCors("FrontendPolicy");
 
 // Middlewares and debug config
 if (app.Environment.IsDevelopment())
