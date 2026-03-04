@@ -10,6 +10,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_ISSUER: "DeuxOrders"
+      JWT_AUDIENCE: "DeuxOrders"
+      Jwt__SECRET: ${{ secrets.JWT_SECRET }}
+      Jwt__Issuer: "DeuxOrders"
+      Jwt__Audience: "DeuxOrders"
+
     steps:
     - name: Checkout repository code
       uses: actions/checkout@v4
@@ -25,12 +34,10 @@ jobs:
         dotnet build --no-restore
 
     - name: Run Integration Tests
-      run: dotnet test --no-build --verbosity normal
-      env:
-        ASPNETCORE_ENVIRONMENT: Development
-        JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        JWT_ISSUER: "DeuxOrders"
-        JWT_AUDIENCE: "DeuxOrders"
-        Jwt__SECRET: ${{ secrets.JWT_SECRET }}
-        Jwt__Issuer: "DeuxOrders"
-        Jwt__Audience: "DeuxOrders"
+      run: |
+        if [ -z "$JWT_SECRET" ]; then
+          echo "::error::JWT_SECRET não encontrada! Verifique o Repository Secrets do GitHub."
+          exit 1
+        fi
+        echo "JWT_SECRET detectada (Tamanho: ${#JWT_SECRET} caracteres)."
+        dotnet test --no-build --verbosity normal
