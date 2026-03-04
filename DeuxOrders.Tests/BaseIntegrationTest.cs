@@ -1,11 +1,7 @@
-﻿using DeuxOrders.Application.DTOs;
-using DeuxOrders.Infrastructure.Data;
+﻿using DeuxOrders.Infrastructure.Data;
 using DeuxOrders.Tests.DTOs;
 using Microsoft.Extensions.DependencyInjection;
-using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using Xunit;
 
 namespace DeuxOrders.Tests
 {
@@ -36,7 +32,7 @@ namespace DeuxOrders.Tests
             if (!regRes.IsSuccessStatusCode)
             {
                 var error = await regRes.Content.ReadAsStringAsync();
-                throw new Exception($"REGISTRO FALHOU: {regRes.StatusCode} - {error}");
+                throw new Exception($"Register failed: {regRes.StatusCode} - {error}");
             }
 
             using (var scope = _factory.Services.CreateScope())
@@ -45,7 +41,7 @@ namespace DeuxOrders.Tests
                 var userExists = db.Users.Any(u => u.Email == email);
                 if (!userExists)
                 {
-                    throw new Exception($"BURRICE DO INMEMORY: Registro deu 200 OK, mas o usuário não existe no DbContext de teste. Email: {email}");
+                    throw new Exception($"INMEMORY: Register returned 200 OK, but user is not saved. Email: {email}");
                 }
             }
 
@@ -54,8 +50,14 @@ namespace DeuxOrders.Tests
 
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadAsStringAsync();
-                throw new Exception($"LOGIN FALHOU: {response.StatusCode} - {error}");
+                var errorBody = await response.Content.ReadAsStringAsync();
+                var authHeaderInfo = response.Headers.WwwAuthenticate.ToString();
+
+                throw new Exception($@"
+                    FALHA NA REQUISIÇÃO: {response.StatusCode}
+                    CABEÇALHO DE AUTH REJEITADO: {authHeaderInfo}
+                    DETALHES: {errorBody}
+                ");
             }
 
             var loginResult = await response.Content.ReadFromJsonAsync<LoginResponse>();

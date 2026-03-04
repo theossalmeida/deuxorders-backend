@@ -71,13 +71,14 @@ builder.Services.AddScoped<DeuxOrders.Application.Services.OrderService>();
 // Application builder
 var app = builder.Build();
 
-// Middlewares config
+// Middlewares and debug config
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-}
-
-app.UseExceptionHandler();
+    app.UseDeveloperExceptionPage();
+} 
+else 
+    app.UseExceptionHandler();
 
 //app.UseHttpsRedirection();
 app.UseAuthentication();

@@ -1,10 +1,10 @@
 ﻿using DeuxOrders.Application.DTOs;
 using DeuxOrders.Tests.DTOs;
-using FluentAssertions;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Xunit; // Certifique-se de que está aqui
 
 namespace DeuxOrders.Tests
 {
@@ -42,22 +42,19 @@ namespace DeuxOrders.Tests
             productRes.EnsureSuccessStatusCode();
             var product = await productRes.Content.ReadFromJsonAsync<ProductResponse>();
             var productId = product!.Id;
-            Console.WriteLine("2nd TEST: Completed!");
+            Console.WriteLine("3rd TEST: Completed!"); // Corrigido log errado de "2nd" para "3rd"
 
             // 4th TEST: Create 2 orders
             Console.WriteLine("4th TEST: Starting...");
-            var order1Req = new CreateOrderRequest(customerId, new List<CreateOrderItemRequest>
-                { new(productId, 5, 1000) });
-            var order2Req = new CreateOrderRequest(customerId, new List<CreateOrderItemRequest>
-                { new(productId, 5, 1000) });
-
+            var order1Req = new CreateOrderRequest(customerId, new List<CreateOrderItemRequest> { new(productId, 5, 1000) });
+            var order2Req = new CreateOrderRequest(customerId, new List<CreateOrderItemRequest> { new(productId, 5, 1000) });
 
             var resOrder1 = await _client.PostAsJsonAsync("/api/v1/orders/new", order1Req);
-            resOrder1.StatusCode.Should().Be(HttpStatusCode.Created);
+            Assert.Equal(HttpStatusCode.Created, resOrder1.StatusCode);
             Console.WriteLine("4th TEST: 1st order created");
 
             var resOrder2 = await _client.PostAsJsonAsync("/api/v1/orders/new", order2Req);
-            resOrder2.StatusCode.Should().Be(HttpStatusCode.Created);
+            Assert.Equal(HttpStatusCode.Created, resOrder2.StatusCode);
             Console.WriteLine("4th TEST: 2nd order created");
 
             var order1 = await resOrder1.Content.ReadFromJsonAsync<OrderResponse>(jsonOptions);
@@ -70,24 +67,23 @@ namespace DeuxOrders.Tests
             allOrdersRes.EnsureSuccessStatusCode();
             var pagedResponse = await allOrdersRes.Content.ReadFromJsonAsync<PagedOrderResponse>(jsonOptions);
             var allOrders = pagedResponse!.Items;
-            allOrders.Should().NotBeEmpty();
-            allOrders.Should().Contain(o => o.Id == order1!.Id);
+
+            Assert.NotEmpty(allOrders);
+            Assert.Contains(allOrders, o => o.Id == order1!.Id);
             Console.WriteLine("5th TEST: Completed!");
 
             // 6th TEST: Edit quantity
             Console.WriteLine("6th TEST: starting...");
-            // Success: (5 - 3 = 2)
             var updateOk = await _client.PatchAsJsonAsync($"/api/v1/orders/{order1!.Id}/items/{productId}/quantity", new { Increment = 2 });
-            updateOk.IsSuccessStatusCode.Should().BeTrue();
+            Assert.True(updateOk.IsSuccessStatusCode);
             Console.WriteLine("6th TEST: Case 1 completed!");
 
-            // Error: (5 - 7 = -2) - 400 BadRequest
             var updateError = await _client.PatchAsJsonAsync($"/api/v1/orders/{order2!.Id}/items/{productId}/quantity", new { Increment = -7 });
-            updateError.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            Assert.Equal(HttpStatusCode.BadRequest, updateError.StatusCode);
             Console.WriteLine("6th TEST: Case 2 completed!");
             Console.WriteLine("6th TEST: Completed!");
 
-            // 7th TEST: Cancel just 1 item from order
+            // 7th TEST: Cancel just 1 item
             Console.WriteLine("7th TEST: Starting...");
             var cancelItem = await _client.PatchAsync($"/api/v1/orders/{order1.Id}/items/{productId}/cancel", null);
             cancelItem.EnsureSuccessStatusCode();
