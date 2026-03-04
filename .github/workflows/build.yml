@@ -10,11 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    env:
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      ASPNETCORE_ENVIRONMENT: Development
-      
-
     steps:
     - name: Checkout repository code
       uses: actions/checkout@v4
@@ -32,10 +27,10 @@ jobs:
     - name: Run Integration Tests
       run: dotnet test --no-build --verbosity normal
       env:
+        ASPNETCORE_ENVIRONMENT: Development
         JWT_SECRET: ${{ secrets.JWT_SECRET }}
         JWT_ISSUER: "DeuxOrders"
         JWT_AUDIENCE: "DeuxOrders"
-        Jwt__Key: ${{ secrets.JWT_SECRET }}
+        Jwt__SECRET: ${{ secrets.JWT_SECRET }}
         Jwt__Issuer: "DeuxOrders"
         Jwt__Audience: "DeuxOrders"
-        ASPNETCORE_ENVIRONMENT: Development
