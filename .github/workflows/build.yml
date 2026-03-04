@@ -1,4 +1,4 @@
-name: Deux Orders Workflow
+name: Deux Orders CI
 
 on:
   push:
@@ -7,23 +7,41 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository code
+    - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Use dotnet 10
+    - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '10.0.x'
 
-    - name: Install dependencies and build
-      run: |
-        dotnet restore
-        dotnet build --no-restore
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+
     - name: Test
-      run: dotnet test --no-build --verbosity normal
-      env:
-        JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      run: |
+        dotnet test --configuration Release --no-build --verbosity normal \
+        --logger "trx;LogFileName=test-results.trx"
+
+    - name: Test Report
+      uses: dorny/test-reporter@v1
+      if: always() # Roda mesmo se os testes falharem
+      with:
+        name: xUnit Test Results
+        path: "**/test-results.trx"
+        reporter: dotnet-trx

@@ -19,6 +19,12 @@ namespace DeuxOrders.Infrastructure.Repositories
             return await _context.Clients
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
+        public async Task<IEnumerable<Client>> GetAll()
+        {
+            return await _context.Clients
+                .AsNoTracking()
+                .ToListAsync();
+        }
 
         public void Add(Client client)
         {
@@ -29,5 +35,6 @@ namespace DeuxOrders.Infrastructure.Repositories
         {
             _context.Clients.Update(client);
         }
+
     }
 }

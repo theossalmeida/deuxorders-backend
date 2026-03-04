@@ -1,5 +1,6 @@
 ﻿using DeuxOrders.Domain.Entities;
 using DeuxOrders.Domain.Interfaces;
+using DeuxOrders.Application.Mapping;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -42,5 +43,14 @@ public class ClientController : ControllerBase
         var client = await _repository.GetByIdAsync(id);
         if (client == null) return NotFound();
         return Ok(client);
+    }
+    [HttpGet("all")]
+    public async Task<IActionResult> GetAll()
+    {
+        var clients = await _repository.GetAll();
+
+        var response = clients.Select(c => c.ToResponse());
+
+        return Ok(response);
     }
 }

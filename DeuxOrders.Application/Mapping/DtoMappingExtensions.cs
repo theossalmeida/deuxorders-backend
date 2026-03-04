@@ -31,7 +31,23 @@ namespace DeuxOrders.Application.Mapping
             );
         }
 
-        public static ProductResponse ToResponse(this Product product) =>
-            new ProductResponse(product.Id, product.Name, product.Price, product.ProductStatus);
+        public static ClientResponse ToResponse(this Client client)
+        {
+            return new ClientResponse(
+                client.Id,
+                client.Name,
+                client.Mobile
+            );
+        }
+        public static ProductResponse ToResponse(this Product product)
+        {
+            return new ProductResponse(
+                product.Id,
+                product.Name,
+                product.Price,
+                product.ProductStatus
+            );
+        }
     }
+
 }

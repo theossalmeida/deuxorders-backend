@@ -36,5 +36,11 @@ namespace DeuxOrders.Infrastructure.Repositories
                 .Where(p => ids.Contains(p.Id))
                 .ToListAsync();
         }
+        public async Task<IEnumerable<Product>> GetAllAsync()
+        {
+            return await _context.Products
+                .AsNoTracking()
+                .ToListAsync();
+        }
     }
 }

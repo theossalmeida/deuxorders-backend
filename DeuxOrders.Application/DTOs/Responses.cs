@@ -32,6 +32,6 @@ namespace DeuxOrders.Application.DTOs
     public record ClientResponse(
         Guid Id,
         string Name,
-        bool Status
+        string? Mobile
     );
 }

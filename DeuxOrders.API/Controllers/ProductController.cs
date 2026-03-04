@@ -1,5 +1,6 @@
 ﻿using DeuxOrders.Domain.Entities;
 using DeuxOrders.Domain.Interfaces;
+using DeuxOrders.Application.Mapping;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -42,5 +43,14 @@ public class ProductController : ControllerBase
         var product = await _repository.GetByIdAsync(id);
         if (product == null) return NotFound();
         return Ok(product);
+    }
+    [HttpGet("all")]
+    public async Task<IActionResult> GetAll()
+    {
+        var products = await _repository.GetAllAsync();
+
+        var response = products.Select(p => p.ToResponse());
+
+        return Ok(response);
     }
 }
