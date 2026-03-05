@@ -5,6 +5,7 @@ using DeuxOrders.Infrastructure.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -16,6 +17,14 @@ var secret = builder.Configuration.GetValue<string>("JwtSettings:Secret")
              ?? throw new Exception("JWT Secret não encontrada!");
 
 var key = Encoding.ASCII.GetBytes(secret);
+
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddAuthentication(x => {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -30,13 +39,13 @@ builder.Services.AddAuthentication(x => {
         ValidateIssuer = false,
         ValidateAudience = false,
         ClockSkew = TimeSpan.Zero,
-
         NameClaimType = "email",
         RoleClaimType = "role"
     };
 });
 
 builder.Services.AddAuthorization();
+
 // Service config
 builder.Services.AddOpenApi();
 
@@ -45,14 +54,15 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// CORS Policy to accept development and production env
+// CORS Policy
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
         policy.WithOrigins(
                 "http://localhost:3000",
-                "http://127.0.0.1:3000"
+                "http://127.0.0.1:3000",
+                "https://orders.deuxcerie.com.br"
               )
               .AllowAnyHeader()
               .AllowAnyMethod()
@@ -86,7 +96,9 @@ builder.Services.AddScoped<DeuxOrders.Application.Services.OrderService>();
 // Application builder
 var app = builder.Build();
 
-//  CORS
+app.UseForwardedHeaders();
+
+// CORS
 app.UseCors("FrontendPolicy");
 
 // Middlewares and debug config
@@ -94,11 +106,12 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.UseDeveloperExceptionPage();
-} 
-else 
+}
+else
+{
     app.UseExceptionHandler();
+}
 
-//app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
