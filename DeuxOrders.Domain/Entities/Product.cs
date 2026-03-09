@@ -2,15 +2,16 @@
 {
     public class Product
     {
-        public void DeactivateProduct()
+        public void ChangeProductStatus()
         {
-            if (!ProductStatus) { throw new InvalidOperationException("Não é possível desativar um produto que já está inativo.");}
-            ProductStatus = false;
+            UpdatedAt = DateTime.UtcNow;
+            ProductStatus = !ProductStatus;
         }
 
         public void SetDescription(string description)
         {
             if (description == null) throw new InvalidOperationException("Não é possível a definição do produto ser nula.");
+            UpdatedAt = DateTime.UtcNow;
             Description = description;
         }
 

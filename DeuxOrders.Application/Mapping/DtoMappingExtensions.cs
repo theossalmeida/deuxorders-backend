@@ -9,7 +9,7 @@ namespace DeuxOrders.Application.Mapping
         {
             return new OrderResponse(
                 order.Id,
-                order.CreatedAt,
+                order.DeliveryDate,
                 order.Status,
                 order.ClientId,
                 clientName,
@@ -24,10 +24,13 @@ namespace DeuxOrders.Application.Mapping
             return new OrderItemResponse(
                 item.ProductId,
                 item.Product?.Name ?? "Produto não encontrado",
+                item.Observation,
                 item.Quantity,
                 item.PaidUnitPrice,
                 item.BaseUnitPrice,
-                item.ItemCanceled
+                item.ItemCanceled,
+                item.TotalPaid,  
+                item.TotalValue  
             );
         }
 

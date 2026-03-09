@@ -26,23 +26,41 @@ namespace DeuxOrders.Infrastructure.Data
             });
 
             // Client mapping
-            modelBuilder.Entity<Client>(entity => {
+            modelBuilder.Entity<Client>(entity =>
+            {
                 entity.ToTable("clients");
                 entity.HasKey(e => e.Id);
             });
 
             // Order mapping
-            modelBuilder.Entity<Order>(entity => {
+            modelBuilder.Entity<Order>(entity =>
+            {
                 entity.ToTable("orders");
-                entity.Navigation(e => e.Items).HasField("_items");
-                entity.HasOne<Client>().WithMany().HasForeignKey(o => o.ClientId).IsRequired();
-                entity.Property(e => e.TotalPaid).IsRequired();
+                entity.HasKey(o => o.Id);
+                entity.HasOne(o => o.Client)
+                      .WithMany()
+                      .HasForeignKey(o => o.ClientId)
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired();
+                entity.HasMany(o => o.Items)
+                      .WithOne(i => i.Order)
+                      .HasForeignKey(i => i.OrderId)
+                      .IsRequired();
             });
 
-            // Item mapping
-            modelBuilder.Entity<OrderItem>(entity => {
+            // OrderItem mapping
+            modelBuilder.Entity<OrderItem>(entity =>
+            {
                 entity.ToTable("order_items");
-                entity.HasKey("OrderId", "ProductId"); // Key to avoid repeating same product on order
+                entity.HasKey(i => new { i.OrderId, i.ProductId }); 
+                entity.HasOne(i => i.Product)
+                      .WithMany()
+                      .HasForeignKey(i => i.ProductId)
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired();
+                entity.Property(oi => oi.Observation)
+                      .HasMaxLength(500)
+                      .IsRequired(false);
             });
 
             // Product mapping

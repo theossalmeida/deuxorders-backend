@@ -4,7 +4,7 @@ namespace DeuxOrders.Application.DTOs
 {
     public record OrderResponse(
         Guid Id,
-        DateTime CreatedAt,
+        DateTime DeliveryDate,
         OrderStatus Status,
         Guid ClientId,
         string ClientName,
@@ -16,10 +16,13 @@ namespace DeuxOrders.Application.DTOs
     public record OrderItemResponse(
         Guid ProductId,
         string ProductName,
+        string? Observation,
         int Quantity,
         int PaidUnitPrice,
         int BaseUnitPrice,
-        bool ItemCanceled
+        bool ItemCanceled,
+        long TotalPaid,   
+        long TotalValue   
     );
 
     public record ProductResponse(

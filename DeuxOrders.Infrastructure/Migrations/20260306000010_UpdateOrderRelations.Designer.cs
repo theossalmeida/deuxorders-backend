@@ -3,6 +3,7 @@ using System;
 using DeuxOrders.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DeuxOrders.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260306000010_UpdateOrderRelations")]
+    partial class UpdateOrderRelations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -58,10 +61,10 @@ namespace DeuxOrders.Infrastructure.Migrations
                     b.Property<Guid>("ClientId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<Guid>("ClientId1")
+                        .HasColumnType("uuid");
 
-                    b.Property<DateTime>("DeliveryDate")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
@@ -79,6 +82,8 @@ namespace DeuxOrders.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientId");
+
+                    b.HasIndex("ClientId1");
 
                     b.ToTable("orders", (string)null);
                 });
@@ -99,10 +104,6 @@ namespace DeuxOrders.Infrastructure.Migrations
 
                     b.Property<bool>("ItemCanceled")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("Observation")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
 
                     b.Property<int>("PaidUnitPrice")
                         .HasColumnType("integer");
@@ -194,10 +195,16 @@ namespace DeuxOrders.Infrastructure.Migrations
 
             modelBuilder.Entity("DeuxOrders.Domain.Entities.Order", b =>
                 {
-                    b.HasOne("DeuxOrders.Domain.Entities.Client", "Client")
+                    b.HasOne("DeuxOrders.Domain.Entities.Client", null)
                         .WithMany()
                         .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DeuxOrders.Domain.Entities.Client", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId1")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Client");
@@ -214,7 +221,7 @@ namespace DeuxOrders.Infrastructure.Migrations
                     b.HasOne("DeuxOrders.Domain.Entities.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Order");

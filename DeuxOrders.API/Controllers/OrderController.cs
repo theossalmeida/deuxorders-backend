@@ -1,8 +1,9 @@
-﻿using DeuxOrders.Application.Services;
+﻿using DeuxOrders.Application.DTOs;
+using DeuxOrders.Application.Mapping;
+using DeuxOrders.Application.Services;
 using DeuxOrders.Domain.Enums;
 using DeuxOrders.Domain.Interfaces;
-using DeuxOrders.Application.DTOs;
-using DeuxOrders.Application.Mapping;
+using DeuxOrders.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -44,7 +45,7 @@ namespace DeuxOrders.API.Controllers
             order.MarkAsCompleted();
             if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-            return Ok(order);
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado"));
         }
 
         [HttpPatch("{id}/cancel")]
@@ -56,7 +57,7 @@ namespace DeuxOrders.API.Controllers
             order.MarkAsCanceled();
             if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-            return Ok(order);
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado"));
         }
 
         [HttpPatch("{id}/items/{productId}/cancel")]
@@ -68,7 +69,7 @@ namespace DeuxOrders.API.Controllers
             order.CancelItem(productId);
             if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-            return Ok(order);
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado"));
         }
 
         [HttpPatch("{id}/items/{productId}/quantity")]
@@ -81,7 +82,8 @@ namespace DeuxOrders.API.Controllers
             {
                 order.UpdateItemQuantity(productId, request.Increment);
                 if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
-                return Ok(order);
+
+                return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado"));
             }
             catch (InvalidOperationException ex)
             {
@@ -102,8 +104,31 @@ namespace DeuxOrders.API.Controllers
         public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int size = 10, [FromQuery] OrderStatus? status = null)
         {
             if (size > 100) size = 100;
+
             var result = await _repository.GetAllAsync(page, size, status);
-            return Ok(result);
+
+            var dtos = result.Items.Select(order =>
+                order.ToResponse(order.Client?.Name ?? "Cliente não encontrado")
+            ).ToList();
+
+            return Ok(new
+            {
+                items = dtos,
+                totalCount = result.TotalCount,
+                pageNumber = result.PageNumber,
+                pageSize = result.PageSize
+            });
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteOrder(Guid id)
+        {
+            var success = await _repository.DeleteAsync(id);
+
+            if (!success)
+                return NotFound(new { Message = "Pedido não encontrado." });
+
+            return NoContent();
         }
     }
 }

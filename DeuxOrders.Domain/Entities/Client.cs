@@ -2,15 +2,10 @@
 {
     public class Client
     {
-        public void DeactivateClient()
+        public void ChangeClientStatus()
         {
-            if (!Status)
-            {
-                throw new InvalidOperationException("Não é possível desativar um cliente que já está inativo.");
-            }
-
             UpdatedAt = DateTime.UtcNow;
-            Status = false;
+            Status = !Status;
         }
         public void SetMobile(string mobile)
         {

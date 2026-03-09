@@ -1,5 +1,7 @@
-﻿using DeuxOrders.Domain.Entities;
+﻿using DeuxOrders.Application.DTOs;
+using DeuxOrders.Domain.Entities;
 using DeuxOrders.Domain.Interfaces;
+using DeuxOrders.Domain.Models;
 using DeuxOrders.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,6 +36,32 @@ namespace DeuxOrders.Infrastructure.Repositories
         public void Update(Client client)
         {
             _context.Clients.Update(client);
+        }
+
+        public async Task<bool> DeleteAsync(Guid id)
+        {
+            var rowsAffected = await _context.Clients
+                .Where(c => c.Id == id)
+                .ExecuteDeleteAsync();
+
+            return rowsAffected > 0;
+        }
+        public async Task<IEnumerable<DropdownItemModel>> GetForDropdownAsync(bool? status)
+        {
+            var query = _context.Clients.AsNoTracking();
+
+            if (status.HasValue)
+            {
+                query = query.Where(c => c.Status == status.Value);
+            }
+
+            return await query
+                .Select(c => new DropdownItemModel
+                {
+                    Id = c.Id,
+                    Name = c.Name
+                })
+                .ToListAsync();
         }
 
     }

@@ -27,6 +27,15 @@ namespace DeuxOrders.Infrastructure.Repositories
 
         public void Update(Order order) => _context.Orders.Update(order);
 
+        public async Task<bool> DeleteAsync(Guid id)
+        {
+            var rowsAffected = await _context.Orders
+                .Where(o => o.Id == id)
+                .ExecuteDeleteAsync();
+
+            return rowsAffected > 0;
+        }
+
         public async Task<PagedResult<Order>> GetAllAsync(int pageNumber, int pageSize, OrderStatus? status = null)
         {
             var baseQuery = _context.Orders.AsNoTracking();
@@ -37,7 +46,9 @@ namespace DeuxOrders.Infrastructure.Repositories
             var totalCount = await baseQuery.CountAsync();
 
             var items = await baseQuery
+                .Include(o => o.Client)
                 .Include(o => o.Items)
+                    .ThenInclude(i => i.Product)
                 .OrderByDescending(o => o.CreatedAt)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)

@@ -46,8 +46,8 @@ namespace DeuxOrders.Tests
 
             // 4th TEST: Create 2 orders
             Console.WriteLine("4th TEST: Starting...");
-            var order1Req = new CreateOrderRequest(customerId, new List<CreateOrderItemRequest> { new(productId, 5, 1000) });
-            var order2Req = new CreateOrderRequest(customerId, new List<CreateOrderItemRequest> { new(productId, 5, 1000) });
+            var order1Req = new CreateOrderRequest(customerId, DateTime.UtcNow, new List<CreateOrderItemRequest> { new(productId, 5, 1000, "obs 02") });
+            var order2Req = new CreateOrderRequest(customerId, DateTime.UtcNow, new List<CreateOrderItemRequest> { new(productId, 5, 1000, "obs 01") });
 
             var resOrder1 = await _client.PostAsJsonAsync("/api/v1/orders/new", order1Req);
             Assert.Equal(HttpStatusCode.Created, resOrder1.StatusCode);
@@ -61,16 +61,24 @@ namespace DeuxOrders.Tests
             var order2 = await resOrder2.Content.ReadFromJsonAsync<OrderResponse>(jsonOptions);
             Console.WriteLine("4th TEST: Completed!");
 
+            await Task.Delay(100);
+
             // 5th TEST: Get all orders
             Console.WriteLine("5th TEST: Starting...");
             var allOrdersRes = await _client.GetAsync("/api/v1/orders/all");
             allOrdersRes.EnsureSuccessStatusCode();
+
             var pagedResponse = await allOrdersRes.Content.ReadFromJsonAsync<PagedOrderResponse>(jsonOptions);
             var allOrders = pagedResponse!.Items;
 
             Assert.NotEmpty(allOrders);
-            Assert.Contains(allOrders, o => o.Id == order1!.Id);
-            Console.WriteLine("5th TEST: Completed!");
+
+            var fetchedOrder = allOrders.FirstOrDefault(o => o.Id == order1!.Id);
+            Assert.NotNull(fetchedOrder);
+            Assert.Equal("Cliente Teste Flow", fetchedOrder.ClientName); 
+            Assert.Equal("Produto Teste", fetchedOrder.Items.First().ProductName); 
+
+            Console.WriteLine("5th TEST: Completed! Names are verified.");
 
             // 6th TEST: Edit quantity
             Console.WriteLine("6th TEST: starting...");

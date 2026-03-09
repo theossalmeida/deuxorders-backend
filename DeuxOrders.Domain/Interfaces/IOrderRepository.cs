@@ -8,6 +8,8 @@ namespace DeuxOrders.Domain.Interfaces
         Task<Order?> GetByIdAsync(Guid id);
         void Add(Order order);
         void Update(Order order);
+        Task<bool> DeleteAsync(Guid id);
         Task<PagedResult<Order>> GetAllAsync(int pageNumber, int pageSize, OrderStatus? status = null);
+
     }
 }

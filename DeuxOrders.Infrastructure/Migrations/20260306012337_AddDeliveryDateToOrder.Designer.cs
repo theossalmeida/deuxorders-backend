@@ -3,6 +3,7 @@ using System;
 using DeuxOrders.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DeuxOrders.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260306012337_AddDeliveryDateToOrder")]
+    partial class AddDeliveryDateToOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -99,10 +102,6 @@ namespace DeuxOrders.Infrastructure.Migrations
 
                     b.Property<bool>("ItemCanceled")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("Observation")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
 
                     b.Property<int>("PaidUnitPrice")
                         .HasColumnType("integer");
@@ -197,7 +196,7 @@ namespace DeuxOrders.Infrastructure.Migrations
                     b.HasOne("DeuxOrders.Domain.Entities.Client", "Client")
                         .WithMany()
                         .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Client");
@@ -214,7 +213,7 @@ namespace DeuxOrders.Infrastructure.Migrations
                     b.HasOne("DeuxOrders.Domain.Entities.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Order");

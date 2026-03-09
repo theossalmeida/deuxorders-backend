@@ -4,10 +4,6 @@
     {
         public void MarkAsCanceled()
         {
-            if (ItemCanceled)
-            {
-                throw new InvalidOperationException("Não é possível cancelar um item que já foi cancelado.");
-            }
             UpdatedAt = DateTime.UtcNow;
             ItemCanceled = true;
         }
@@ -23,7 +19,9 @@
         }
 
         public Guid ProductId { get; private set; }
-        public virtual Product Product { get; private set; } = null;
+        public virtual Product Product { get; private set; } = null!;
+        public virtual Order Order { get; private set; } = null!;
+        public string? Observation { get; private set; }
         public Guid OrderId { get; private set; }
         public DateTime CreatedAt { get; private set; }
         public DateTime? UpdatedAt { get; private set; }
@@ -33,11 +31,11 @@
         public int Quantity { get; private set; }
         public long TotalPaid { get; private set; }
         public long TotalValue { get; private set; }
-        public OrderItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice)
+        public OrderItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice, string? observation)
         {
             if (quantity <= 0) throw new ArgumentException("Quantidade deve ser maior que zero.");
             if (paidUnitPrice < 0) throw new ArgumentException("Preço não pode ser negativo.");
-
+            if (observation != null) { Observation = observation; };
             ProductId = productId;
             Quantity = quantity;
             PaidUnitPrice = paidUnitPrice;

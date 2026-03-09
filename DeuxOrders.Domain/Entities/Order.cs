@@ -6,22 +6,24 @@ namespace DeuxOrders.Domain.Entities
     {
         public Guid Id { get; private set; }
         public DateTime CreatedAt { get; private set; }
+        public DateTime DeliveryDate { get; private set; }
         public DateTime? UpdatedAt { get; private set; }
         public OrderStatus Status { get; private set; }
         public Guid ClientId { get; private set; }
-
+        public virtual Client Client { get; private set; } = null!;
         public long TotalPaid { get; private set; }
         public long TotalValue { get; private set; }
 
         private readonly List<OrderItem> _items = new();
         public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
 
-        public Order(Guid clientId)
+        public Order(Guid clientId, DateTime deliveryDate)
         {
             Id = Guid.CreateVersion7();
             CreatedAt = DateTime.UtcNow;
             ClientId = clientId;
             Status = OrderStatus.Pending;
+            DeliveryDate = deliveryDate;
         }
 
         private Order() { }
@@ -47,7 +49,7 @@ namespace DeuxOrders.Domain.Entities
             UpdatedAt = DateTime.UtcNow;
         }
 
-        public void AddItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice)
+        public void AddItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice, string? observation)
         {
             if (Status != OrderStatus.Pending)
                 throw new InvalidOperationException("Não é possível adicionar itens a um pedido não pendente.");
@@ -59,7 +61,7 @@ namespace DeuxOrders.Domain.Entities
             if (existingItem != null)
                 existingItem.UpdateQuantity(quantity);
             else
-                _items.Add(new OrderItem(productId, quantity, paidUnitPrice, baseUnitPrice));
+                _items.Add(new OrderItem(productId, quantity, paidUnitPrice, baseUnitPrice, observation));
 
             RecalculateTotal();
         }

@@ -1,6 +1,7 @@
-﻿using DeuxOrders.Domain.Entities;
+﻿using DeuxOrders.Application.Mapping;
+using DeuxOrders.Domain.Entities;
 using DeuxOrders.Domain.Interfaces;
-using DeuxOrders.Application.Mapping;
+using DeuxOrders.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -37,6 +38,44 @@ public class ProductController : ControllerBase
         return CreatedAtRoute("GetProductById", new { id = product.Id }, product);
     }
 
+    [HttpPatch("{id}/inactive", Name = "SetProductInactive")]
+    public async Task<IActionResult> DeactivateProduct(Guid id)
+    {
+        var product = await _repository.GetByIdAsync(id);
+        if (product == null) return NotFound();
+        if (!product.ProductStatus) return BadRequest("Produto já está desativado.");
+        product.ChangeProductStatus();
+
+        var success = await _unitOfWork.CommitAsync();
+        if (!success)
+            return BadRequest("Falha ao desativar o produto no banco de dados.");
+        
+        return Ok(product);
+    }
+
+    [HttpPatch("{id}/active", Name = "SetProductActive")]
+    public async Task<IActionResult> ActivateProduct(Guid id)
+    {
+        var product = await _repository.GetByIdAsync(id);
+        if (product == null) return NotFound();
+        if(product.ProductStatus) return BadRequest("Produto já está ativo.");
+        
+        product.ChangeProductStatus();
+
+        var success = await _unitOfWork.CommitAsync();
+        if (!success)
+            return BadRequest("Falha ao ativar o produto no banco de dados.");
+
+        return Ok(product);
+    }
+
+    [HttpGet("dropdown")]
+    public async Task<IActionResult> GetForDropdown([FromQuery] bool? status)
+    {
+        var result = await _repository.GetForDropdownAsync(status);
+        return Ok(result);
+    }
+
     [HttpGet("{id}", Name = "GetProductById")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -44,6 +83,7 @@ public class ProductController : ControllerBase
         if (product == null) return NotFound();
         return Ok(product);
     }
+
     [HttpGet("all")]
     public async Task<IActionResult> GetAll()
     {
@@ -52,5 +92,23 @@ public class ProductController : ControllerBase
         var response = products.Select(p => p.ToResponse());
 
         return Ok(response);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteProduct(Guid id)
+    {
+        try
+        {
+            var success = await _repository.DeleteAsync(id);
+
+            if (!success)
+                return NotFound(new { Message = "Produto não encontrado." });
+
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = "Não é possível deletar este produto pois ele pertence a um pedido existente.", Details = ex.Message });
+        }
     }
 }

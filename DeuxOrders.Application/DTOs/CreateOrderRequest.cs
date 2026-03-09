@@ -2,12 +2,14 @@
 {
     public record CreateOrderRequest(
         Guid ClientId,
+        DateTime DeliveryDate,
         List<CreateOrderItemRequest> Items
     );
 
     public record CreateOrderItemRequest(
         Guid ProductId,
         int Quantity,
-        int UnitPrice
+        int UnitPrice,
+        string? Observation
     );
 }

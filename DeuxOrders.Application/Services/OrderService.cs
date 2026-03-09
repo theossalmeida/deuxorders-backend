@@ -34,14 +34,14 @@ namespace DeuxOrders.Application.Services
 
             var productsDict = dbProducts.ToDictionary(p => p.Id);
 
-            var order = new Order(request.ClientId);
+            var order = new Order(request.ClientId, request.DeliveryDate);
 
             foreach (var item in request.Items)
             {
                 if (!productsDict.TryGetValue(item.ProductId, out var product))
                     throw new ArgumentException($"Produto {item.ProductId} não encontrado.");
 
-                order.AddItem(item.ProductId, item.Quantity, item.UnitPrice, product.Price);
+                order.AddItem(item.ProductId, item.Quantity, item.UnitPrice, product.Price, item.Observation);
             }
 
             _repository.Add(order);
