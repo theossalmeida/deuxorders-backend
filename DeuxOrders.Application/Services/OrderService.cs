@@ -1,6 +1,7 @@
 ﻿using DeuxOrders.Domain.Entities;
 using DeuxOrders.Domain.Interfaces;
 using DeuxOrders.Application.DTOs;
+using DeuxOrders.Domain.Enums;
 
 namespace DeuxOrders.Application.Services
 {
@@ -45,6 +46,48 @@ namespace DeuxOrders.Application.Services
             }
 
             _repository.Add(order);
+            await _unitOfWork.CommitAsync();
+
+            return order;
+        }
+
+        public async Task<Order> UpdateOrderAsync(Guid id, UpdateOrderRequest request)
+        {
+            var order = await _repository.GetByIdAsync(id)
+                ?? throw new InvalidOperationException("Pedido não encontrado.");
+
+            if (request.DeliveryDate.HasValue)
+                order.UpdateDeliveryDate(request.DeliveryDate.Value);
+
+            if (request.Status.HasValue)
+            {
+                if (!Enum.IsDefined(typeof(OrderStatus), request.Status.Value))
+                    throw new InvalidOperationException("Status inválido.");
+
+                order.UpdateStatus((OrderStatus)request.Status.Value);
+            }
+
+            if (request.Items != null && request.Items.Count > 0)
+            {
+                var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
+                var dbProducts = await _productRepository.GetByManyIdsAsync(productIds);
+                var productsDict = dbProducts.ToDictionary(p => p.Id);
+
+                foreach (var itemRequest in request.Items)
+                {
+                    if (!productsDict.TryGetValue(itemRequest.ProductId, out var product))
+                        throw new InvalidOperationException($"Produto {itemRequest.ProductId} não encontrado.");
+
+                    order.UpsertItem(
+                        itemRequest.ProductId,
+                        itemRequest.Quantity,
+                        itemRequest.PaidUnitPrice,
+                        itemRequest.Observation,
+                        product.Price
+                    );
+                }
+            }
+
             await _unitOfWork.CommitAsync();
 
             return order;

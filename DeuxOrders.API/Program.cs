@@ -115,4 +115,23 @@ else
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDbContext>();
+
+        Console.WriteLine(">>> Verificando conectividade e rodando migrations...");
+        context.Database.Migrate();
+        Console.WriteLine(">>> Migrations executadas com sucesso!");
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "ERRO CRÍTICO: Falha ao conectar no banco ou rodar migrations. Verifique Security Groups e ConnectionString.");
+    }
+}
+
 app.Run();

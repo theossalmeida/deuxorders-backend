@@ -49,6 +49,23 @@ namespace DeuxOrders.Domain.Entities
             UpdatedAt = DateTime.UtcNow;
         }
 
+        public void UpdateDeliveryDate(DateTime deliveryDate)
+        {
+            DeliveryDate = deliveryDate;
+            UpdatedAt = DateTime.UtcNow;
+        }
+
+        public void UpdateStatus(OrderStatus status)
+        {
+            if (Status == status) return;
+
+            if (status == OrderStatus.Completed && Status == OrderStatus.Canceled)
+                throw new InvalidOperationException("Não é possível concluir um pedido que foi cancelado.");
+
+            Status = status;
+            UpdatedAt = DateTime.UtcNow;
+        }
+
         public void AddItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice, string? observation)
         {
             if (Status != OrderStatus.Pending)
@@ -62,6 +79,25 @@ namespace DeuxOrders.Domain.Entities
                 existingItem.UpdateQuantity(quantity);
             else
                 _items.Add(new OrderItem(productId, quantity, paidUnitPrice, baseUnitPrice, observation));
+
+            RecalculateTotal();
+        }
+
+        public void UpsertItem(Guid productId, int? quantity, int? paidUnitPrice, string? observation, int baseUnitPrice)
+        {
+            var existingItem = _items.FirstOrDefault(x => x.ProductId == productId);
+
+            if (existingItem == null)
+            {
+                if (quantity == null || quantity <= 0)
+                    throw new InvalidOperationException("A quantidade é obrigatória e deve ser maior que zero ao adicionar um novo item.");
+
+                _items.Add(new OrderItem(productId, quantity.Value, paidUnitPrice ?? baseUnitPrice, baseUnitPrice, observation));
+            }
+            else
+            {
+                existingItem.UpdateDetails(quantity, paidUnitPrice, observation);
+            }
 
             RecalculateTotal();
         }

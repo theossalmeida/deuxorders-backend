@@ -9,13 +9,38 @@
         }
 
         public void UpdateQuantity(int increment)
-        { 
+        {
             if (increment == 0) throw new InvalidOperationException("Não é possível alterar a quantidade em 0.");
             if (Quantity + increment <= 0) throw new InvalidOperationException("Não é possível descontar mais do que havia no pedido.");
 
             Quantity += increment;
             TotalPaid = Quantity * PaidUnitPrice;
-            UpdatedAt = DateTime.UtcNow; 
+            TotalValue = Quantity * BaseUnitPrice;
+            UpdatedAt = DateTime.UtcNow;
+        }
+
+        public void UpdateDetails(int? quantity, int? paidUnitPrice, string? observation)
+        {
+            if (quantity.HasValue)
+            {
+                if (quantity.Value <= 0)
+                    throw new InvalidOperationException("A quantidade deve ser maior que zero.");
+                Quantity = quantity.Value;
+            }
+
+            if (paidUnitPrice.HasValue)
+            {
+                if (paidUnitPrice.Value < 0)
+                    throw new InvalidOperationException("O preço não pode ser negativo.");
+                PaidUnitPrice = paidUnitPrice.Value;
+            }
+
+            if (observation != null)
+                Observation = observation;
+
+            TotalPaid = Quantity * PaidUnitPrice;
+            TotalValue = Quantity * BaseUnitPrice;
+            UpdatedAt = DateTime.UtcNow;
         }
 
         public Guid ProductId { get; private set; }
@@ -31,11 +56,13 @@
         public int Quantity { get; private set; }
         public long TotalPaid { get; private set; }
         public long TotalValue { get; private set; }
+
         public OrderItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice, string? observation)
         {
             if (quantity <= 0) throw new ArgumentException("Quantidade deve ser maior que zero.");
             if (paidUnitPrice < 0) throw new ArgumentException("Preço não pode ser negativo.");
-            if (observation != null) { Observation = observation; };
+            if (observation != null) { Observation = observation; }
+            ;
             ProductId = productId;
             Quantity = quantity;
             PaidUnitPrice = paidUnitPrice;

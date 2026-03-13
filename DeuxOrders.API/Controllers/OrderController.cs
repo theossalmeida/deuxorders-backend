@@ -3,7 +3,6 @@ using DeuxOrders.Application.Mapping;
 using DeuxOrders.Application.Services;
 using DeuxOrders.Domain.Enums;
 using DeuxOrders.Domain.Interfaces;
-using DeuxOrders.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -34,6 +33,14 @@ namespace DeuxOrders.API.Controllers
             var order = await _orderService.CreateOrderAsync(request);
 
             return CreatedAtAction(nameof(GetById), new { id = order.Id }, order.ToResponse());
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(Guid id, [FromBody] UpdateOrderRequest request)
+        {
+            var order = await _orderService.UpdateOrderAsync(id, request);
+
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado"));
         }
 
         [HttpPatch("{id}/complete")]
