@@ -1,6 +1,7 @@
 ﻿using DeuxOrders.Domain.Entities;
 using DeuxOrders.Domain.Enums;
 using DeuxOrders.Domain.Interfaces;
+using DeuxOrders.Domain.Models;
 using DeuxOrders.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -66,6 +67,36 @@ namespace DeuxOrders.Infrastructure.Repositories
                 .ToListAsync();
 
             return new PagedResult<Order>(items, totalCount, pageNumber, pageSize);
+        }
+
+        public async Task<IEnumerable<OrderExportRow>> GetForExportAsync(ExportFilter filter)
+        {
+            var query = _context.Orders.AsNoTracking();
+
+            if (filter.Status.HasValue)
+                query = query.Where(o => o.Status == filter.Status.Value);
+
+            if (filter.From.HasValue)
+                query = query.Where(o => o.DeliveryDate >= filter.From.Value);
+
+            if (filter.To.HasValue)
+                query = query.Where(o => o.DeliveryDate <= filter.To.Value);
+
+            return await query
+                .OrderBy(o => o.DeliveryDate)
+                .SelectMany(o => o.Items
+                    .Where(i => !i.ItemCanceled)
+                    .Select(i => new OrderExportRow(
+                        o.Id,
+                        o.Client.Name,
+                        o.DeliveryDate,
+                        o.Status,
+                        i.Product.Name,
+                        i.Quantity,
+                        i.PaidUnitPrice,
+                        i.TotalPaid
+                    )))
+                .ToListAsync();
         }
     }
 }

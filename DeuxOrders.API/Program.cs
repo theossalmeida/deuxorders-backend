@@ -1,4 +1,6 @@
+using DeuxOrders.API.Services;
 using DeuxOrders.Domain.Interfaces;
+using QuestPDF.Infrastructure;
 using DeuxOrders.Infrastructure.Data;
 using DeuxOrders.Infrastructure.Repositories;
 using DeuxOrders.Infrastructure.Services;
@@ -12,6 +14,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -98,6 +102,7 @@ builder.Services.AddControllers()
 // Services config
 builder.Services.AddScoped<DeuxOrders.Application.Services.OrderService>();
 builder.Services.AddScoped<DeuxOrders.Application.Services.DashboardService>();
+builder.Services.AddSingleton<ExportService>();
 
 // Rate limiting config
 builder.Services.AddRateLimiter(options =>
