@@ -79,6 +79,7 @@ builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IClientRepository, ClientRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -96,6 +97,7 @@ builder.Services.AddControllers()
     });
 // Services config
 builder.Services.AddScoped<DeuxOrders.Application.Services.OrderService>();
+builder.Services.AddScoped<DeuxOrders.Application.Services.DashboardService>();
 
 // Rate limiting config
 builder.Services.AddRateLimiter(options =>

@@ -18,6 +18,17 @@ namespace DeuxOrders.Infrastructure.Repositories
         public async Task<Order?> GetByIdAsync(Guid id)
         {
             return await _context.Orders
+                .Include(o => o.Client)
+                .Include(o => o.Items)
+                    .ThenInclude(i => i.Product)
+                .FirstOrDefaultAsync(o => o.Id == id);
+        }
+
+        public async Task<Order?> GetByIdReadOnlyAsync(Guid id)
+        {
+            return await _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Client)
                 .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
                 .FirstOrDefaultAsync(o => o.Id == id);
