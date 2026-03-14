@@ -20,7 +20,7 @@ namespace DeuxOrders.Application.Services
             var model = await _repository.GetSummaryAsync(filter);
 
             long discount = model.TotalValue - model.TotalRevenue;
-            long avgRevenue = model.CompletedOrders > 0 ? model.TotalRevenue / model.CompletedOrders : 0;
+            long avgRevenue = model.TotalOrders > 0 ? model.TotalRevenue / model.TotalOrders : 0;
 
             return new DashboardSummaryResponse(
                 model.TotalRevenue,

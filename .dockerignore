@@ -1,0 +1,10 @@
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/*.user
+.git
+.gitignore
+docker-compose.yml
+fly.toml
+README.md

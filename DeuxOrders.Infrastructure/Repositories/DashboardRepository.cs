@@ -18,7 +18,8 @@ namespace DeuxOrders.Infrastructure.Repositories
 
         private IQueryable<Order> ApplyFilters(DashboardFilter filter)
         {
-            var query = _context.Orders.AsNoTracking();
+            var query = _context.Orders.AsNoTracking()
+                .Where(o => o.Status != OrderStatus.Canceled);
 
             if (filter.StartDate.HasValue)
                 query = query.Where(o => o.CreatedAt >= filter.StartDate.Value);
@@ -41,14 +42,21 @@ namespace DeuxOrders.Infrastructure.Repositories
                     TotalOrders = g.Count(),
                     PendingOrders = g.Count(o => o.Status == OrderStatus.Pending),
                     CompletedOrders = g.Count(o => o.Status == OrderStatus.Completed),
-                    CanceledOrders = g.Count(o => o.Status == OrderStatus.Canceled),
                     TotalRevenue = g.Sum(o => o.TotalPaid),
                     TotalValue = g.Sum(o => o.TotalValue),
                 })
                 .FirstOrDefaultAsync();
 
+            var canceledQuery = _context.Orders.AsNoTracking()
+                .Where(o => o.Status == OrderStatus.Canceled);
+            if (filter.StartDate.HasValue)
+                canceledQuery = canceledQuery.Where(o => o.CreatedAt >= filter.StartDate.Value);
+            if (filter.EndDate.HasValue)
+                canceledQuery = canceledQuery.Where(o => o.CreatedAt <= filter.EndDate.Value);
+            var canceledOrders = await canceledQuery.CountAsync();
+
             if (result == null)
-                return new DashboardSummaryModel(0, 0, 0, 0, 0, 0);
+                return new DashboardSummaryModel(0, 0, 0, 0, 0, canceledOrders);
 
             return new DashboardSummaryModel(
                 result.TotalRevenue,
@@ -56,7 +64,7 @@ namespace DeuxOrders.Infrastructure.Repositories
                 result.TotalOrders,
                 result.PendingOrders,
                 result.CompletedOrders,
-                result.CanceledOrders
+                canceledOrders
             );
         }
 
