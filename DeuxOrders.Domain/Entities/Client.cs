@@ -7,6 +7,14 @@
             UpdatedAt = DateTime.UtcNow;
             Status = !Status;
         }
+        public void Update(string name, string? mobile)
+        {
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Nome não pode ser vazio.");
+            Name = name;
+            Mobile = string.IsNullOrWhiteSpace(mobile) ? null : mobile;
+            UpdatedAt = DateTime.UtcNow;
+        }
+
         public void SetMobile(string mobile)
         {
             if (string.IsNullOrWhiteSpace(mobile)) { throw new InvalidOperationException("Não é possível adicionar um número de telefone vazio."); }

@@ -38,6 +38,21 @@ public class ProductController : ControllerBase
         return CreatedAtRoute("GetProductById", new { id = product.Id }, product);
     }
 
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProduct request)
+    {
+        var product = await _repository.GetByIdAsync(id);
+        if (product == null) return NotFound();
+
+        product.Update(request.Name, request.Price, request.Description);
+
+        var success = await _unitOfWork.CommitAsync();
+        if (!success)
+            return BadRequest("Falha ao atualizar o produto no banco de dados.");
+
+        return Ok(product.ToResponse());
+    }
+
     [HttpPatch("{id}/inactive", Name = "SetProductInactive")]
     public async Task<IActionResult> DeactivateProduct(Guid id)
     {

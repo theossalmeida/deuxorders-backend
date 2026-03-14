@@ -14,4 +14,17 @@ namespace DeuxOrders.API.Validations
                 .GreaterThan(0).WithMessage("O preço do produto deve ser maior que zero.");
         }
     }
+
+    public class UpdateProductValidator : AbstractValidator<UpdateProduct>
+    {
+        public UpdateProductValidator()
+        {
+            RuleFor(x => x.Name)
+                .NotEmpty().WithMessage("O nome do produto é obrigatório.")
+                .MaximumLength(100).WithMessage("O nome não pode exceder 100 caracteres.");
+
+            RuleFor(x => x.Price)
+                .GreaterThan(0).WithMessage("O preço do produto deve ser maior que zero.");
+        }
+    }
 }

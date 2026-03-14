@@ -38,6 +38,21 @@ public class ClientController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = client.Id }, client);
     }
 
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateClient request)
+    {
+        var client = await _repository.GetByIdAsync(id);
+        if (client == null) return NotFound();
+
+        client.Update(request.Name, request.Mobile);
+
+        var success = await _unitOfWork.CommitAsync();
+        if (!success)
+            return BadRequest("Falha ao atualizar o cliente no banco de dados.");
+
+        return Ok(client.ToResponse());
+    }
+
     [HttpPatch("{id}/inactive", Name = "SetClientInactive")]
     public async Task<IActionResult> Deactivateclient(Guid id)
     {

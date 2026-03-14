@@ -2,6 +2,16 @@
 {
     public class Product
     {
+        public void Update(string name, int price, string? description)
+        {
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Nome não pode ser vazio.");
+            if (price < 0) throw new ArgumentException("Preço não pode ser negativo.");
+            Name = name;
+            Price = price;
+            Description = description;
+            UpdatedAt = DateTime.UtcNow;
+        }
+
         public void ChangeProductStatus()
         {
             UpdatedAt = DateTime.UtcNow;
