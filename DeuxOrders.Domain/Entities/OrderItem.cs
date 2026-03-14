@@ -11,7 +11,7 @@
         public void UpdateQuantity(int increment)
         {
             if (increment == 0) throw new InvalidOperationException("Não é possível alterar a quantidade em 0.");
-            if (Quantity + increment <= 0) throw new InvalidOperationException("Não é possível descontar mais do que havia no pedido.");
+            if (Quantity + increment < 0) throw new InvalidOperationException("Não é possível descontar mais do que havia no pedido.");
 
             Quantity += increment;
             TotalPaid = Quantity * PaidUnitPrice;
@@ -23,8 +23,8 @@
         {
             if (quantity.HasValue)
             {
-                if (quantity.Value <= 0)
-                    throw new InvalidOperationException("A quantidade deve ser maior que zero.");
+                if (quantity.Value < 0)
+                    throw new InvalidOperationException("A quantidade não pode ser negativa.");
                 Quantity = quantity.Value;
             }
 
@@ -59,7 +59,7 @@
 
         public OrderItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice, string? observation)
         {
-            if (quantity <= 0) throw new ArgumentException("Quantidade deve ser maior que zero.");
+            if (quantity < 0) throw new ArgumentException("Quantidade não pode ser negativa.");
             if (paidUnitPrice < 0) throw new ArgumentException("Preço não pode ser negativo.");
             if (observation != null) { Observation = observation; }
             ;

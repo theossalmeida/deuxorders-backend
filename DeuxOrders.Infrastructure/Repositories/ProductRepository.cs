@@ -47,11 +47,17 @@ namespace DeuxOrders.Infrastructure.Repositories
                 .Where(p => ids.Contains(p.Id))
                 .ToListAsync();
         }
-        public async Task<IEnumerable<Product>> GetAllAsync()
+        public async Task<IEnumerable<Product>> GetAllAsync(string? search, bool? status)
         {
-            return await _context.Products
-                .AsNoTracking()
-                .ToListAsync();
+            var query = _context.Products.AsNoTracking();
+
+            if (status.HasValue)
+                query = query.Where(p => p.ProductStatus == status.Value);
+
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()));
+
+            return await query.ToListAsync();
         }
         public async Task<IEnumerable<ProductDropdownModel>> GetForDropdownAsync(bool? status)
         {

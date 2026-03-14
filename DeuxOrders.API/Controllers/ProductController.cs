@@ -85,13 +85,10 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet("all")]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] bool? status)
     {
-        var products = await _repository.GetAllAsync();
-
-        var response = products.Select(p => p.ToResponse());
-
-        return Ok(response);
+        var products = await _repository.GetAllAsync(search, status);
+        return Ok(products.Select(p => p.ToResponse()));
     }
 
     [HttpDelete("{id}")]

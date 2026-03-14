@@ -21,11 +21,17 @@ namespace DeuxOrders.Infrastructure.Repositories
             return await _context.Clients
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
-        public async Task<IEnumerable<Client>> GetAll()
+        public async Task<IEnumerable<Client>> GetAll(string? search, bool? status)
         {
-            return await _context.Clients
-                .AsNoTracking()
-                .ToListAsync();
+            var query = _context.Clients.AsNoTracking();
+
+            if (status.HasValue)
+                query = query.Where(c => c.Status == status.Value);
+
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(c => c.Name.ToLower().Contains(search.ToLower()));
+
+            return await query.ToListAsync();
         }
 
         public void Add(Client client)

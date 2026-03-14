@@ -6,7 +6,7 @@ namespace DeuxOrders.Domain.Interfaces
     public interface IClientRepository
     {
         Task<Client?> GetByIdAsync(Guid Id);
-        Task<IEnumerable<Client>> GetAll();
+        Task<IEnumerable<Client>> GetAll(string? search, bool? status);
         void Add(Client client);
         void Update(Client client);
         Task<bool> DeleteAsync(Guid id);
