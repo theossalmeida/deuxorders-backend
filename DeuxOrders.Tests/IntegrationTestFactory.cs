@@ -27,8 +27,8 @@ namespace DeuxOrders.Tests
                 {
                     { "JWT_SECRET", testSecretKey },
                     { "JwtSettings:Secret", testSecretKey },
-                    { "JWT_ISSUER", "DeuxOrders_Test" },
-                    { "JWT_AUDIENCE", "DeuxOrders_Test" }
+                    { "JWT_ISSUER", "deuxorders-api" },
+                    { "JWT_AUDIENCE", "deuxorders-client" }
                 };
 
                 config.AddInMemoryCollection(testConfig);
