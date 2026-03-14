@@ -108,7 +108,7 @@ public class ClientController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { Message = "Não é possível deletar este cliente pois existem vínculos.", Details = ex.Message });
+            return BadRequest(new { Message = "Não é possível deletar este cliente pois existem vínculos." });
         }
     }
 }

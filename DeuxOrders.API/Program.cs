@@ -6,10 +6,12 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,8 +38,10 @@ builder.Services.AddAuthentication(x => {
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = false,
-        ValidateAudience = false,
+        ValidateIssuer = true,
+        ValidIssuer = "deuxorders-api",
+        ValidateAudience = true,
+        ValidAudience = "deuxorders-client",
         ClockSkew = TimeSpan.Zero,
         NameClaimType = "email",
         RoleClaimType = "role"
@@ -93,6 +97,19 @@ builder.Services.AddControllers()
 // Services config
 builder.Services.AddScoped<DeuxOrders.Application.Services.OrderService>();
 
+// Rate limiting config
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("auth", limiter =>
+    {
+        limiter.PermitLimit = 10;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiter.QueueLimit = 0;
+    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
 // Application builder
 var app = builder.Build();
 
@@ -112,6 +129,7 @@ else
     app.UseExceptionHandler();
 }
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

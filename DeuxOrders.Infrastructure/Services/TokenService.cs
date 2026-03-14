@@ -30,6 +30,8 @@ namespace DeuxOrders.Infrastructure.Services
                     new Claim("role", user.Role.ToString()),
                     new Claim("id", user.Id.ToString())
                 }),
+                Issuer = "deuxorders-api",
+                Audience = "deuxorders-client",
                 Expires = DateTime.UtcNow.AddHours(8),
                 SigningCredentials = new SigningCredentials(
                     new SymmetricSecurityKey(_key),

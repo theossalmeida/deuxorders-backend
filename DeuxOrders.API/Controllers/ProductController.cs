@@ -108,7 +108,7 @@ public class ProductController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { Message = "Não é possível deletar este produto pois ele pertence a um pedido existente.", Details = ex.Message });
+            return BadRequest(new { Message = "Não é possível deletar este produto pois ele pertence a um pedido existente." });
         }
     }
 }

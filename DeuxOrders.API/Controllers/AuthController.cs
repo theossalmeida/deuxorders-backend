@@ -2,10 +2,13 @@
 using DeuxOrders.Domain.Entities;
 using DeuxOrders.Domain.Enums;
 using DeuxOrders.Domain.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 [ApiController]
 [Route("api/v1/auth")]
+[EnableRateLimiting("auth")]
 public class AuthController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
@@ -19,6 +22,7 @@ public class AuthController : ControllerBase
         _unitOfWork = unitOfWork;
     }
 
+    [Authorize]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
