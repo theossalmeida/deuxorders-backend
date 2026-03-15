@@ -19,13 +19,13 @@ namespace DeuxOrders.API.Controllers
         private readonly IOrderRepository _repository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly OrderService _orderService;
-        private readonly StorageService _storageService;
+        private readonly IStorageService _storageService;
 
         public OrderController(
             IOrderRepository repository,
             IUnitOfWork unitOfWork,
             OrderService orderService,
-            StorageService storageService)
+            IStorageService storageService)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;

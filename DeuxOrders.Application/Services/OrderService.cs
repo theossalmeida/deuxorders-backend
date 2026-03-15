@@ -92,7 +92,7 @@ namespace DeuxOrders.Application.Services
             }
 
             if (request.References != null)
-                order.SetReferences(request.References);
+                order.AppendReferences(request.References);
 
             await _unitOfWork.CommitAsync();
 

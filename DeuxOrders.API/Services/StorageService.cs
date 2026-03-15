@@ -4,7 +4,7 @@ using Amazon.S3.Model;
 
 namespace DeuxOrders.API.Services
 {
-    public class StorageService
+    public class StorageService : IStorageService
     {
         private readonly IAmazonS3 _s3Client;
         private readonly string _bucketName;

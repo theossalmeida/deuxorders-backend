@@ -142,6 +142,20 @@ namespace DeuxOrders.Domain.Entities
             UpdatedAt = DateTime.UtcNow;
         }
 
+        public void AppendReferences(List<string> references)
+        {
+            var current = References ?? [];
+
+            if (current.Count >= 3)
+                throw new InvalidOperationException("O pedido já possui o máximo de 3 referências.");
+
+            if (current.Count + references.Count > 3)
+                throw new InvalidOperationException($"Não é possível adicionar {references.Count} referência(s). O pedido possui {current.Count} e o limite é 3.");
+
+            References = [.. current, .. references];
+            UpdatedAt = DateTime.UtcNow;
+        }
+
         private void RecalculateTotal()
         {
             var activeItems = _items.Where(i => !i.ItemCanceled).ToList();

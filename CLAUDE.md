@@ -106,7 +106,6 @@ All routes are prefixed with `/api/v1/`. All endpoints except `POST /auth/login`
 - `PATCH /orders/{id}/items/{productId}/cancel`
 - `PATCH /orders/{id}/items/{productId}/quantity`
 - `POST /orders/references/presigned-url` — Returns a pre-signed R2 PUT URL and object key. iOS uploads image directly to R2, then passes the key in the order request.
-- `GET /orders/export?from=&to=&status=&format=csv|pdf` — Export via QuestPDF (PDF) or custom CSV writer. Excludes canceled items.
 
 **Clients**
 - `POST /clients/new`, `GET /clients/{id}`, `PUT /clients/{id}`, `DELETE /clients/{id}`
@@ -125,5 +124,6 @@ All routes are prefixed with `/api/v1/`. All endpoints except `POST /auth/login`
 - `GET /dashboard/revenue-over-time?startDate=&endDate=&status=` — Daily revenue data points.
 - `GET /dashboard/top-products?startDate=&endDate=&status=&limit=10`
 - `GET /dashboard/top-clients?startDate=&endDate=&status=&limit=10`
+- `GET /dashboard/export?from=&to=&status=&format=csv|pdf` — Export via QuestPDF (PDF) or custom CSV writer. Excludes canceled items.
 
 Dashboard repository queries use `AsNoTracking()`. Canceled orders are always counted separately regardless of status filter.

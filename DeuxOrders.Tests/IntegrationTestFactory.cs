@@ -1,4 +1,5 @@
-﻿using DeuxOrders.Infrastructure.Data;
+﻿using DeuxOrders.API.Services;
+using DeuxOrders.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -10,6 +11,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+
+file sealed class NullStorageService : IStorageService
+{
+    public string GeneratePresignedUploadUrl(string objectKey, string contentType) => string.Empty;
+    public List<string>? GetSignedReadUrls(List<string>? objectKeys) => null;
+}
 
 namespace DeuxOrders.Tests
 {
@@ -36,6 +43,9 @@ namespace DeuxOrders.Tests
 
             builder.ConfigureTestServices(services =>
             {
+                services.RemoveAll<IStorageService>();
+                services.AddSingleton<IStorageService, NullStorageService>();
+
                 services.RemoveAll(typeof(DbContextOptions<ApplicationDbContext>));
                 services.RemoveAll(typeof(DbContextOptions));
                 services.RemoveAll(typeof(IDbContextOptionsConfiguration<ApplicationDbContext>));

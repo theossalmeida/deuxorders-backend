@@ -23,8 +23,8 @@ namespace DeuxOrders.API.Services
                     StatusToString(row.Status),
                     Escape(row.ProductName),
                     row.Quantity,
-                    row.PaidUnitPrice,
-                    row.TotalPaid
+                    FormatCents(row.PaidUnitPrice),
+                    FormatCents(row.TotalPaid)
                 ));
             }
 
@@ -85,8 +85,8 @@ namespace DeuxOrders.API.Services
                             table.Cell().Background(bg).Padding(4).Text(StatusToString(row.Status));
                             table.Cell().Background(bg).Padding(4).Text(row.ProductName);
                             table.Cell().Background(bg).Padding(4).Text(row.Quantity.ToString());
-                            table.Cell().Background(bg).Padding(4).Text(row.PaidUnitPrice.ToString());
-                            table.Cell().Background(bg).Padding(4).Text(row.TotalPaid.ToString());
+                            table.Cell().Background(bg).Padding(4).Text(FormatCents(row.PaidUnitPrice));
+                            table.Cell().Background(bg).Padding(4).Text(FormatCents(row.TotalPaid));
                         }
                     });
 
@@ -100,6 +100,8 @@ namespace DeuxOrders.API.Services
                 });
             }).GeneratePdf();
         }
+
+        private static string FormatCents(long cents) => (cents / 100m).ToString("F2");
 
         private static string StatusToString(OrderStatus status) => status switch
         {
