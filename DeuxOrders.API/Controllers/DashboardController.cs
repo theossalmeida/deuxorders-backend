@@ -1,5 +1,8 @@
+using DeuxOrders.API.Services;
 using DeuxOrders.Application.Services;
 using DeuxOrders.Domain.Enums;
+using DeuxOrders.Domain.Interfaces;
+using DeuxOrders.Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,10 +14,18 @@ namespace DeuxOrders.API.Controllers
     public class DashboardController : ControllerBase
     {
         private readonly DashboardService _service;
+        private readonly IOrderRepository _repository;
+        private readonly ExportService _exportService;
 
-        public DashboardController(DashboardService service)
+        public DashboardController(
+            DashboardService service,
+            IOrderRepository repository,
+            ExportService exportService
+            )
         {
             _service = service;
+            _repository = repository;
+            _exportService = exportService;
         }
 
         [HttpGet("summary")]
@@ -57,6 +68,26 @@ namespace DeuxOrders.API.Controllers
         {
             var result = await _service.GetTopClientsAsync(startDate, endDate, status, limit);
             return Ok(result);
+        }
+
+        [HttpGet("export")]
+        public async Task<IActionResult> Export(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] OrderStatus? status,
+            [FromQuery] string format = "csv")
+        {
+            var rows = await _repository.GetForExportAsync(new ExportFilter(from, to, status));
+            var filename = $"pedidos_{DateTime.UtcNow:yyyyMMdd}";
+
+            if (format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                var pdf = _exportService.GeneratePdf(rows);
+                return File(pdf, "application/pdf", $"{filename}.pdf");
+            }
+
+            var csv = _exportService.GenerateCsv(rows);
+            return File(csv, "text/csv; charset=utf-8", $"{filename}.csv");
         }
     }
 }

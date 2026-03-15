@@ -45,6 +45,9 @@ namespace DeuxOrders.Application.Services
                 order.AddItem(item.ProductId, item.Quantity, item.UnitPrice, product.Price, item.Observation);
             }
 
+            if (request.References != null)
+                order.SetReferences(request.References);
+
             _repository.Add(order);
             await _unitOfWork.CommitAsync();
 
@@ -87,6 +90,9 @@ namespace DeuxOrders.Application.Services
                     );
                 }
             }
+
+            if (request.References != null)
+                order.SetReferences(request.References);
 
             await _unitOfWork.CommitAsync();
 

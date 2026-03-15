@@ -103,6 +103,7 @@ builder.Services.AddControllers()
 builder.Services.AddScoped<DeuxOrders.Application.Services.OrderService>();
 builder.Services.AddScoped<DeuxOrders.Application.Services.DashboardService>();
 builder.Services.AddSingleton<ExportService>();
+builder.Services.AddSingleton<StorageService>();
 
 // Rate limiting config
 builder.Services.AddRateLimiter(options =>

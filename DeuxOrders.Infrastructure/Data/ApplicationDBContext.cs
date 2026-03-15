@@ -42,6 +42,9 @@ namespace DeuxOrders.Infrastructure.Data
                       .HasForeignKey(o => o.ClientId)
                       .OnDelete(DeleteBehavior.Restrict)
                       .IsRequired();
+                entity.Property(o => o.References)
+                      .HasColumnType("text[]")
+                      .IsRequired(false);
                 entity.HasMany(o => o.Items)
                       .WithOne(i => i.Order)
                       .HasForeignKey(i => i.OrderId)

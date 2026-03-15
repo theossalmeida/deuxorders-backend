@@ -5,7 +5,7 @@ namespace DeuxOrders.Application.Mapping
 {
     public static class DtoMappingExtensions
     {
-        public static OrderResponse ToResponse(this Order order, string clientName = "")
+        public static OrderResponse ToResponse(this Order order, string clientName = "", List<string>? signedReferenceUrls = null)
         {
             return new OrderResponse(
                 order.Id,
@@ -15,6 +15,7 @@ namespace DeuxOrders.Application.Mapping
                 clientName,
                 (long)order.TotalPaid,
                 (long)order.TotalValue,
+                signedReferenceUrls,
                 order.Items.Select(i => i.ToResponse()).ToList()
             );
         }

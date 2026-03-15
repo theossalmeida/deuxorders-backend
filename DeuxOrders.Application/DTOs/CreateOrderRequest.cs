@@ -3,7 +3,8 @@
     public record CreateOrderRequest(
         Guid ClientId,
         DateTime DeliveryDate,
-        List<CreateOrderItemRequest> Items
+        List<CreateOrderItemRequest> Items,
+        List<string>? References
     );
 
     public record CreateOrderItemRequest(

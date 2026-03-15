@@ -4,9 +4,10 @@ using DeuxOrders.Application.Mapping;
 using DeuxOrders.Application.Services;
 using DeuxOrders.Domain.Enums;
 using DeuxOrders.Domain.Interfaces;
-using DeuxOrders.Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
+public record PresignedUploadRequest(string FileName, string ContentType);
 
 namespace DeuxOrders.API.Controllers
 {
@@ -18,34 +19,46 @@ namespace DeuxOrders.API.Controllers
         private readonly IOrderRepository _repository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly OrderService _orderService;
-        private readonly ExportService _exportService;
+        private readonly StorageService _storageService;
 
         public OrderController(
             IOrderRepository repository,
             IUnitOfWork unitOfWork,
             OrderService orderService,
-            ExportService exportService)
+            StorageService storageService)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
-            _orderService = orderService;
-            _exportService = exportService;
+            _orderService = orderService,
+            _storageService = storageService;
+        }
+
+        [HttpPost("references/presigned-url")]
+        public IActionResult GetPresignedUploadUrl([FromBody] PresignedUploadRequest request)
+        {
+            var extension = Path.GetExtension(request.FileName);
+            var objectKey = $"order-references/{Guid.NewGuid()}{extension}";
+            var uploadUrl = _storageService.GeneratePresignedUploadUrl(objectKey, request.ContentType);
+
+            return Ok(new { uploadUrl, objectKey });
         }
 
         [HttpPost("new")]
         public async Task<IActionResult> Create([FromBody] CreateOrderRequest request)
         {
             var order = await _orderService.CreateOrderAsync(request);
+            var signedUrls = _storageService.GetSignedReadUrls(order.References);
 
-            return CreatedAtAction(nameof(GetById), new { id = order.Id }, order.ToResponse());
+            return CreatedAtAction(nameof(GetById), new { id = order.Id }, order.ToResponse(signedReferenceUrls: signedUrls));
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateOrderRequest request)
         {
             var order = await _orderService.UpdateOrderAsync(id, request);
+            var signedUrls = _storageService.GetSignedReadUrls(order.References);
 
-            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado"));
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
         }
 
         [HttpPatch("{id}/complete")]
@@ -57,7 +70,8 @@ namespace DeuxOrders.API.Controllers
             order.MarkAsCompleted();
             if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado"));
+            var signedUrls = _storageService.GetSignedReadUrls(order.References);
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
         }
 
         [HttpPatch("{id}/cancel")]
@@ -69,7 +83,8 @@ namespace DeuxOrders.API.Controllers
             order.MarkAsCanceled();
             if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado"));
+            var signedUrls = _storageService.GetSignedReadUrls(order.References);
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
         }
 
         [HttpPatch("{id}/items/{productId}/cancel")]
@@ -81,7 +96,8 @@ namespace DeuxOrders.API.Controllers
             order.CancelItem(productId);
             if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado"));
+            var signedUrls = _storageService.GetSignedReadUrls(order.References);
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
         }
 
         [HttpPatch("{id}/items/{productId}/quantity")]
@@ -95,7 +111,8 @@ namespace DeuxOrders.API.Controllers
                 order.UpdateItemQuantity(productId, request.Increment);
                 if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-                return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado"));
+                var signedUrls = _storageService.GetSignedReadUrls(order.References);
+                return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
             }
             catch (InvalidOperationException ex)
             {
@@ -109,7 +126,8 @@ namespace DeuxOrders.API.Controllers
             var order = await _repository.GetByIdAsync(id);
             if (order == null) return NotFound();
 
-            return Ok(order.ToResponse());
+            var signedUrls = _storageService.GetSignedReadUrls(order.References);
+            return Ok(order.ToResponse(order.Client?.Name ?? "", signedUrls));
         }
 
         [HttpGet("all")]
@@ -120,7 +138,7 @@ namespace DeuxOrders.API.Controllers
             var result = await _repository.GetAllAsync(page, size, status);
 
             var dtos = result.Items.Select(order =>
-                order.ToResponse(order.Client?.Name ?? "Cliente não encontrado")
+                order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", _storageService.GetSignedReadUrls(order.References))
             ).ToList();
 
             return Ok(new
@@ -130,26 +148,6 @@ namespace DeuxOrders.API.Controllers
                 pageNumber = result.PageNumber,
                 pageSize = result.PageSize
             });
-        }
-
-        [HttpGet("export")]
-        public async Task<IActionResult> Export(
-            [FromQuery] DateTime? from,
-            [FromQuery] DateTime? to,
-            [FromQuery] OrderStatus? status,
-            [FromQuery] string format = "csv")
-        {
-            var rows = await _repository.GetForExportAsync(new ExportFilter(from, to, status));
-            var filename = $"pedidos_{DateTime.UtcNow:yyyyMMdd}";
-
-            if (format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
-            {
-                var pdf = _exportService.GeneratePdf(rows);
-                return File(pdf, "application/pdf", $"{filename}.pdf");
-            }
-
-            var csv = _exportService.GenerateCsv(rows);
-            return File(csv, "text/csv; charset=utf-8", $"{filename}.csv");
         }
 
         [HttpDelete("{id}")]

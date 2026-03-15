@@ -1,7 +1,8 @@
 ﻿public record UpdateOrderRequest(
     DateTime? DeliveryDate,
     int? Status,
-    List<UpdateOrderItemRequest>? Items
+    List<UpdateOrderItemRequest>? Items,
+    List<string>? References
 );
 
 public record UpdateOrderItemRequest(

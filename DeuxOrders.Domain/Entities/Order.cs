@@ -13,6 +13,7 @@ namespace DeuxOrders.Domain.Entities
         public virtual Client Client { get; private set; } = null!;
         public long TotalPaid { get; private set; }
         public long TotalValue { get; private set; }
+        public List<string>? References { get; private set; }
 
         private readonly List<OrderItem> _items = new();
         public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
@@ -130,6 +131,15 @@ namespace DeuxOrders.Domain.Entities
 
             item.UpdateQuantity(increment);
             RecalculateTotal();
+        }
+
+        public void SetReferences(List<string>? references)
+        {
+            if (references != null && references.Count > 3)
+                throw new InvalidOperationException("Um pedido pode ter no máximo 3 referências.");
+
+            References = references;
+            UpdatedAt = DateTime.UtcNow;
         }
 
         private void RecalculateTotal()

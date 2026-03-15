@@ -20,6 +20,12 @@ namespace DeuxOrders.API.Validations
                 .WithMessage("O pedido deve conter ao menos um item.");
 
             RuleForEach(x => x.Items).SetValidator(new CreateOrderItemValidator());
+
+            RuleFor(x => x.References)
+                .Must(r => r == null || r.Count <= 3)
+                .WithMessage("Um pedido pode ter no máximo 3 referências.")
+                .Must(r => r == null || r.All(key => !string.IsNullOrWhiteSpace(key)))
+                .WithMessage("Chave de referência inválida.");
         }
     }
 

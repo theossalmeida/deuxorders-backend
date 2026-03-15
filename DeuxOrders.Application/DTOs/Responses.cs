@@ -8,8 +8,9 @@ namespace DeuxOrders.Application.DTOs
         OrderStatus Status,
         Guid ClientId,
         string ClientName,
-        long TotalPaid,   
+        long TotalPaid,
         long TotalValue,
+        List<string>? References,
         List<OrderItemResponse> Items
     );
 
