@@ -11,6 +11,7 @@ namespace DeuxOrders.API.Services
         private readonly string _endpoint;
         private const string Region = "auto";
         private const string Service = "s3";
+        private static readonly HttpClient _httpClient = new();
 
         public StorageService(IConfiguration configuration)
         {
@@ -28,6 +29,43 @@ namespace DeuxOrders.API.Services
         {
             if (objectKeys == null || objectKeys.Count == 0) return null;
             return objectKeys.Select(k => BuildPresignedUrl("GET", k, expiresInSeconds: 3600)).ToList();
+        }
+
+        public async Task DeleteObjectAsync(string objectKey)
+        {
+            var now = DateTime.UtcNow;
+            var dateStamp = now.ToString("yyyyMMdd");
+            var amzDate = now.ToString("yyyyMMddTHHmmssZ");
+            var credentialScope = $"{dateStamp}/{Region}/{Service}/aws4_request";
+            var host = new Uri(_endpoint).Host;
+            var canonicalUri = "/" + string.Join("/", objectKey.Split('/').Select(Uri.EscapeDataString));
+            var payloadHash = Sha256Hex("");
+            var canonicalHeaders = $"host:{host}\nx-amz-content-sha256:{payloadHash}\nx-amz-date:{amzDate}\n";
+            var signedHeaders = "host;x-amz-content-sha256;x-amz-date";
+
+            var canonicalRequest = string.Join("\n",
+                "DELETE",
+                $"/{_bucketName}{canonicalUri}",
+                "",
+                canonicalHeaders,
+                signedHeaders,
+                payloadHash);
+
+            var stringToSign = string.Join("\n",
+                "AWS4-HMAC-SHA256",
+                amzDate,
+                credentialScope,
+                Sha256Hex(canonicalRequest));
+
+            var signature = HmacHex(DeriveSigningKey(dateStamp), stringToSign);
+            var authorization = $"AWS4-HMAC-SHA256 Credential={_accessKeyId}/{credentialScope}, SignedHeaders={signedHeaders}, Signature={signature}";
+
+            using var request = new HttpRequestMessage(HttpMethod.Delete, $"{_endpoint}/{_bucketName}/{objectKey}");
+            request.Headers.TryAddWithoutValidation("Authorization", authorization);
+            request.Headers.TryAddWithoutValidation("x-amz-content-sha256", payloadHash);
+            request.Headers.TryAddWithoutValidation("x-amz-date", amzDate);
+
+            await _httpClient.SendAsync(request);
         }
 
         private string BuildPresignedUrl(string method, string objectKey, int expiresInSeconds)

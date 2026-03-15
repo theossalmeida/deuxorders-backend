@@ -142,6 +142,15 @@ namespace DeuxOrders.Domain.Entities
             UpdatedAt = DateTime.UtcNow;
         }
 
+        public void RemoveReference(string objectKey)
+        {
+            if (References == null || !References.Contains(objectKey))
+                throw new InvalidOperationException("Referência não encontrada no pedido.");
+
+            References = References.Where(r => r != objectKey).ToList();
+            UpdatedAt = DateTime.UtcNow;
+        }
+
         public void AppendReferences(List<string> references)
         {
             var current = References ?? [];

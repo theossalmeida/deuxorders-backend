@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 public record PresignedUploadRequest(string FileName, string ContentType);
+public record RemoveReferenceRequest(string ObjectKey);
 
 namespace DeuxOrders.API.Controllers
 {
@@ -31,6 +32,22 @@ namespace DeuxOrders.API.Controllers
             _unitOfWork = unitOfWork;
             _orderService = orderService;
             _storageService = storageService;
+        }
+
+        [HttpDelete("{id}/references")]
+        public async Task<IActionResult> RemoveReference(Guid id, [FromBody] RemoveReferenceRequest request)
+        {
+            var order = await _repository.GetByIdAsync(id);
+            if (order == null) return NotFound();
+
+            order.RemoveReference(request.ObjectKey);
+
+            if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
+
+            await _storageService.DeleteObjectAsync(request.ObjectKey);
+
+            var signedUrls = _storageService.GetSignedReadUrls(order.References);
+            return Ok(order.ToResponse(order.Client?.Name ?? "", signedUrls));
         }
 
         [HttpPost("references/presigned-url")]

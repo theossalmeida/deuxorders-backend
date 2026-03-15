@@ -16,6 +16,7 @@ file sealed class NullStorageService : IStorageService
 {
     public string GeneratePresignedUploadUrl(string objectKey, string contentType) => string.Empty;
     public List<string>? GetSignedReadUrls(List<string>? objectKeys) => null;
+    public Task DeleteObjectAsync(string objectKey) => Task.CompletedTask;
 }
 
 namespace DeuxOrders.Tests

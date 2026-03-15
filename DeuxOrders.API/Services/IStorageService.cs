@@ -4,5 +4,6 @@ namespace DeuxOrders.API.Services
     {
         string GeneratePresignedUploadUrl(string objectKey, string contentType);
         List<string>? GetSignedReadUrls(List<string>? objectKeys);
+        Task DeleteObjectAsync(string objectKey);
     }
 }
