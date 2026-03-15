@@ -29,7 +29,7 @@ namespace DeuxOrders.API.Controllers
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
-            _orderService = orderService,
+            _orderService = orderService;
             _storageService = storageService;
         }
 
