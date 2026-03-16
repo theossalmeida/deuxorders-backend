@@ -77,6 +77,24 @@ public class ProductController : ControllerBase
         return Ok(product.ToResponse(imageUrl));
     }
 
+    [HttpDelete("{id}/image")]
+    public async Task<IActionResult> DeleteImage(Guid id)
+    {
+        var product = await _repository.GetByIdAsync(id);
+        if (product == null) return NotFound();
+        if (product.Image == null) return BadRequest("Produto não possui imagem.");
+
+        var objectKey = product.Image;
+        product.SetImage(null);
+
+        if (!await _unitOfWork.CommitAsync())
+            return BadRequest("Falha ao remover a imagem do banco de dados.");
+
+        await _storageService.DeleteObjectAsync(objectKey);
+
+        return Ok(product.ToResponse());
+    }
+
     [HttpPatch("{id}/inactive", Name = "SetProductInactive")]
     public async Task<IActionResult> DeactivateProduct(Guid id)
     {
