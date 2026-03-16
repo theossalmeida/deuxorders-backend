@@ -25,6 +25,7 @@ namespace DeuxOrders.Application.Mapping
             return new OrderItemResponse(
                 item.ProductId,
                 item.Product?.Name ?? "Produto não encontrado",
+                item.Product?.Size,
                 item.Observation,
                 item.Quantity,
                 item.PaidUnitPrice,

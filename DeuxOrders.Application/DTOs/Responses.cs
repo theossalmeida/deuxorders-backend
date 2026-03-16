@@ -17,6 +17,7 @@ namespace DeuxOrders.Application.DTOs
     public record OrderItemResponse(
         Guid ProductId,
         string ProductName,
+        string? ProductSize,
         string? Observation,
         int Quantity,
         int PaidUnitPrice,
