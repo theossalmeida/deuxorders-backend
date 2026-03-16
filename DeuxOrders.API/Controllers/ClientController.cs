@@ -44,7 +44,7 @@ public class ClientController : ControllerBase
         var client = await _repository.GetByIdAsync(id);
         if (client == null) return NotFound();
 
-        client.Update(request.Name, request.Mobile);
+        client.Update(request.Name, request.Mobile, request.Status);
 
         var success = await _unitOfWork.CommitAsync();
         if (!success)

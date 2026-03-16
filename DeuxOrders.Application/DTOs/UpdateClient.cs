@@ -2,5 +2,6 @@ using System.ComponentModel.DataAnnotations;
 
 public record UpdateClient(
     [Required] string Name,
-    string? Mobile
+    string? Mobile,
+    bool? Status = null
 );

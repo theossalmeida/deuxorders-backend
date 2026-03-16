@@ -7,11 +7,12 @@
             UpdatedAt = DateTime.UtcNow;
             Status = !Status;
         }
-        public void Update(string name, string? mobile)
+        public void Update(string name, string? mobile, bool? status = null)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Nome não pode ser vazio.");
             Name = name;
             Mobile = string.IsNullOrWhiteSpace(mobile) ? null : mobile;
+            if (status.HasValue) Status = status.Value;
             UpdatedAt = DateTime.UtcNow;
         }
 
