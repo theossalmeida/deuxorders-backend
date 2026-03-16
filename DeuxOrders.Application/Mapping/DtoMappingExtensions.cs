@@ -50,7 +50,8 @@ namespace DeuxOrders.Application.Mapping
                 product.Name,
                 product.Price,
                 product.ProductStatus,
-                imageUrl
+                imageUrl,
+                product.Category
             );
         }
     }

@@ -25,7 +25,7 @@ public class ProductController : ControllerBase
     [HttpPost("new")]
     public async Task<IActionResult> Create([FromForm] CreateProductRequest request)
     {
-        var product = new Product(request.Name, request.Price);
+        var product = new Product(request.Name, request.Price, request.Category);
 
         if (!string.IsNullOrWhiteSpace(request.Description))
             product.SetDescription(request.Description);
@@ -65,7 +65,7 @@ public class ProductController : ControllerBase
         }
 
         var oldObjectKey = product.Image;
-        product.Update(request.Name, request.Price, request.Description, newObjectKey ?? product.Image);
+        product.Update(request.Name, request.Price, request.Description, newObjectKey ?? product.Image, request.Category);
 
         if (!await _unitOfWork.CommitAsync())
             return BadRequest("Falha ao atualizar o produto no banco de dados.");

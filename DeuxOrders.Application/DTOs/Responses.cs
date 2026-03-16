@@ -31,7 +31,8 @@ namespace DeuxOrders.Application.DTOs
         string Name,
         int Price,
         bool Status,
-        string? Image
+        string? Image,
+        string? Category
     );
 
     public record ClientResponse(
