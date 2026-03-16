@@ -1,7 +1,8 @@
-﻿using DeuxOrders.Application.Mapping;
+using DeuxOrders.API.Models;
+using DeuxOrders.API.Services;
+using DeuxOrders.Application.Mapping;
 using DeuxOrders.Domain.Entities;
 using DeuxOrders.Domain.Interfaces;
-using DeuxOrders.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,45 +13,68 @@ public class ProductController : ControllerBase
 {
     private readonly IProductRepository _repository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IStorageService _storageService;
 
-    public ProductController(IProductRepository repository, IUnitOfWork unitOfWork)
+    public ProductController(IProductRepository repository, IUnitOfWork unitOfWork, IStorageService storageService)
     {
         _repository = repository;
         _unitOfWork = unitOfWork;
+        _storageService = storageService;
     }
 
     [HttpPost("new")]
-    public async Task<IActionResult> Create([FromBody] CreateProduct request)
+    public async Task<IActionResult> Create([FromForm] CreateProductRequest request)
     {
         var product = new Product(request.Name, request.Price);
 
         if (!string.IsNullOrWhiteSpace(request.Description))
-        {
             product.SetDescription(request.Description);
+
+        if (request.Image != null)
+        {
+            var extension = Path.GetExtension(request.Image.FileName);
+            var objectKey = $"products-images/{Guid.NewGuid()}{extension}";
+            using var stream = request.Image.OpenReadStream();
+            await _storageService.UploadFileAsync(stream, objectKey, request.Image.ContentType);
+            product.SetImage(objectKey);
         }
 
         _repository.Add(product);
 
-        var success = await _unitOfWork.CommitAsync();
-        if (!success)
+        if (!await _unitOfWork.CommitAsync())
             return BadRequest("Falha ao salvar o produto no banco de dados.");
 
-        return CreatedAtRoute("GetProductById", new { id = product.Id }, product);
+        var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
+        return CreatedAtRoute("GetProductById", new { id = product.Id }, product.ToResponse(imageUrl));
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProduct request)
+    public async Task<IActionResult> Update(Guid id, [FromForm] UpdateProductRequest request)
     {
         var product = await _repository.GetByIdAsync(id);
         if (product == null) return NotFound();
 
-        product.Update(request.Name, request.Price, request.Description);
+        string? newObjectKey = null;
 
-        var success = await _unitOfWork.CommitAsync();
-        if (!success)
+        if (request.Image != null)
+        {
+            var extension = Path.GetExtension(request.Image.FileName);
+            newObjectKey = $"products-images/{Guid.NewGuid()}{extension}";
+            using var stream = request.Image.OpenReadStream();
+            await _storageService.UploadFileAsync(stream, newObjectKey, request.Image.ContentType);
+        }
+
+        var oldObjectKey = product.Image;
+        product.Update(request.Name, request.Price, request.Description, newObjectKey ?? product.Image);
+
+        if (!await _unitOfWork.CommitAsync())
             return BadRequest("Falha ao atualizar o produto no banco de dados.");
 
-        return Ok(product.ToResponse());
+        if (newObjectKey != null && oldObjectKey != null)
+            await _storageService.DeleteObjectAsync(oldObjectKey);
+
+        var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
+        return Ok(product.ToResponse(imageUrl));
     }
 
     [HttpPatch("{id}/inactive", Name = "SetProductInactive")]
@@ -61,11 +85,11 @@ public class ProductController : ControllerBase
         if (!product.ProductStatus) return BadRequest("Produto já está desativado.");
         product.ChangeProductStatus();
 
-        var success = await _unitOfWork.CommitAsync();
-        if (!success)
+        if (!await _unitOfWork.CommitAsync())
             return BadRequest("Falha ao desativar o produto no banco de dados.");
-        
-        return Ok(product);
+
+        var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
+        return Ok(product.ToResponse(imageUrl));
     }
 
     [HttpPatch("{id}/active", Name = "SetProductActive")]
@@ -73,15 +97,15 @@ public class ProductController : ControllerBase
     {
         var product = await _repository.GetByIdAsync(id);
         if (product == null) return NotFound();
-        if(product.ProductStatus) return BadRequest("Produto já está ativo.");
-        
+        if (product.ProductStatus) return BadRequest("Produto já está ativo.");
+
         product.ChangeProductStatus();
 
-        var success = await _unitOfWork.CommitAsync();
-        if (!success)
+        if (!await _unitOfWork.CommitAsync())
             return BadRequest("Falha ao ativar o produto no banco de dados.");
 
-        return Ok(product);
+        var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
+        return Ok(product.ToResponse(imageUrl));
     }
 
     [HttpGet("dropdown")]
@@ -96,14 +120,19 @@ public class ProductController : ControllerBase
     {
         var product = await _repository.GetByIdAsync(id);
         if (product == null) return NotFound();
-        return Ok(product);
+        var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
+        return Ok(product.ToResponse(imageUrl));
     }
 
     [HttpGet("all")]
     public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] bool? status)
     {
         var products = await _repository.GetAllAsync(search, status);
-        return Ok(products.Select(p => p.ToResponse()));
+        return Ok(products.Select(p =>
+        {
+            var imageUrl = p.Image != null ? _storageService.GetPublicUrl(p.Image) : null;
+            return p.ToResponse(imageUrl);
+        }));
     }
 
     [HttpDelete("{id}")]
@@ -111,14 +140,19 @@ public class ProductController : ControllerBase
     {
         try
         {
-            var success = await _repository.DeleteAsync(id);
+            var product = await _repository.GetByIdAsync(id);
+            if (product == null) return NotFound(new { Message = "Produto não encontrado." });
 
-            if (!success)
-                return NotFound(new { Message = "Produto não encontrado." });
+            var objectKey = product.Image;
+            var success = await _repository.DeleteAsync(id);
+            if (!success) return NotFound(new { Message = "Produto não encontrado." });
+
+            if (objectKey != null)
+                await _storageService.DeleteObjectAsync(objectKey);
 
             return NoContent();
         }
-        catch (Exception ex)
+        catch
         {
             return BadRequest(new { Message = "Não é possível deletar este produto pois ele pertence a um pedido existente." });
         }

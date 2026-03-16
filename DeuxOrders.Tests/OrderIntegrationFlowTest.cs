@@ -37,8 +37,10 @@ namespace DeuxOrders.Tests
 
             // 3rd TEST: Create a product
             Console.WriteLine("3rd TEST: Starting...");
-            var productRequest = new CreateProduct("Produto Teste", 1000);
-            var productRes = await _client.PostAsJsonAsync("/api/v1/products/new", productRequest);
+            var productForm = new MultipartFormDataContent();
+            productForm.Add(new StringContent("Produto Teste"), "Name");
+            productForm.Add(new StringContent("1000"), "Price");
+            var productRes = await _client.PostAsync("/api/v1/products/new", productForm);
             productRes.EnsureSuccessStatusCode();
             var product = await productRes.Content.ReadFromJsonAsync<ProductResponse>();
             var productId = product!.Id;

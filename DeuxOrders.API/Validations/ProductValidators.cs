@@ -1,10 +1,13 @@
-﻿using FluentValidation;
+using DeuxOrders.API.Models;
+using FluentValidation;
 
 namespace DeuxOrders.API.Validations
 {
-    public class CreateProductValidator : AbstractValidator<CreateProduct>
+    public class CreateProductRequestValidator : AbstractValidator<CreateProductRequest>
     {
-        public CreateProductValidator()
+        private static readonly string[] AllowedImageTypes = ["image/jpeg", "image/png", "image/webp"];
+
+        public CreateProductRequestValidator()
         {
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("O nome do produto é obrigatório.")
@@ -12,12 +15,25 @@ namespace DeuxOrders.API.Validations
 
             RuleFor(x => x.Price)
                 .GreaterThan(0).WithMessage("O preço do produto deve ser maior que zero.");
+
+            When(x => x.Image != null, () =>
+            {
+                RuleFor(x => x.Image!.ContentType)
+                    .Must(ct => AllowedImageTypes.Contains(ct))
+                    .WithMessage("A imagem deve ser JPEG, PNG ou WebP.");
+
+                RuleFor(x => x.Image!.Length)
+                    .LessThanOrEqualTo(5 * 1024 * 1024)
+                    .WithMessage("A imagem não pode exceder 5 MB.");
+            });
         }
     }
 
-    public class UpdateProductValidator : AbstractValidator<UpdateProduct>
+    public class UpdateProductRequestValidator : AbstractValidator<UpdateProductRequest>
     {
-        public UpdateProductValidator()
+        private static readonly string[] AllowedImageTypes = ["image/jpeg", "image/png", "image/webp"];
+
+        public UpdateProductRequestValidator()
         {
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("O nome do produto é obrigatório.")
@@ -25,6 +41,17 @@ namespace DeuxOrders.API.Validations
 
             RuleFor(x => x.Price)
                 .GreaterThan(0).WithMessage("O preço do produto deve ser maior que zero.");
+
+            When(x => x.Image != null, () =>
+            {
+                RuleFor(x => x.Image!.ContentType)
+                    .Must(ct => AllowedImageTypes.Contains(ct))
+                    .WithMessage("A imagem deve ser JPEG, PNG ou WebP.");
+
+                RuleFor(x => x.Image!.Length)
+                    .LessThanOrEqualTo(5 * 1024 * 1024)
+                    .WithMessage("A imagem não pode exceder 5 MB.");
+            });
         }
     }
 }

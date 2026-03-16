@@ -30,7 +30,8 @@ namespace DeuxOrders.Application.DTOs
         Guid Id,
         string Name,
         int Price,
-        bool Status
+        bool Status,
+        string? Image
     );
 
     public record ClientResponse(

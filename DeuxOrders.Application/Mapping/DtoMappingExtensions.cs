@@ -43,13 +43,14 @@ namespace DeuxOrders.Application.Mapping
                 client.Mobile
             );
         }
-        public static ProductResponse ToResponse(this Product product)
+        public static ProductResponse ToResponse(this Product product, string? imageUrl = null)
         {
             return new ProductResponse(
                 product.Id,
                 product.Name,
                 product.Price,
-                product.ProductStatus
+                product.ProductStatus,
+                imageUrl
             );
         }
     }
