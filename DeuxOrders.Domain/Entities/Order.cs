@@ -25,7 +25,7 @@ namespace DeuxOrders.Domain.Entities
             Id = Guid.CreateVersion7();
             CreatedAt = DateTime.UtcNow;
             ClientId = clientId;
-            Status = OrderStatus.Pending;
+            Status = OrderStatus.Received;
             DeliveryDate = deliveryDate;
         }
 
@@ -71,8 +71,8 @@ namespace DeuxOrders.Domain.Entities
 
         public void AddItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice, string? observation)
         {
-            if (Status != OrderStatus.Pending)
-                throw new InvalidOperationException("Não é possível adicionar itens a um pedido não pendente.");
+            if (Status != OrderStatus.Received)
+                throw new InvalidOperationException("Não é possível adicionar itens a um pedido não recebido.");
 
             if (quantity <= 0)
                 throw new ArgumentException("A quantidade deve ser maior que zero.");
@@ -107,8 +107,8 @@ namespace DeuxOrders.Domain.Entities
 
         public void CancelItem(Guid productId)
         {
-            if (Status != OrderStatus.Pending)
-                throw new InvalidOperationException("Apenas pedidos pendentes podem ter itens cancelados.");
+            if (Status != OrderStatus.Received)
+                throw new InvalidOperationException("Apenas pedidos recebidos podem ter itens cancelados.");
 
             var item = _items.FirstOrDefault(x => x.ProductId == productId)
                 ?? throw new InvalidOperationException("Item não encontrado no pedido.");
@@ -119,8 +119,8 @@ namespace DeuxOrders.Domain.Entities
 
         public void UpdateItemQuantity(Guid productId, int increment)
         {
-            if (Status != OrderStatus.Pending)
-                throw new InvalidOperationException("Não é possível alterar quantidades de um pedido não pendente.");
+            if (Status != OrderStatus.Received)
+                throw new InvalidOperationException("Não é possível alterar quantidades de um pedido não recebido.");
 
             var item = _items.FirstOrDefault(x => x.ProductId == productId)
                 ?? throw new InvalidOperationException("Item não encontrado no pedido.");
