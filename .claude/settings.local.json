@@ -4,7 +4,10 @@
       "Bash(dotnet test:*)",
       "Bash(dotnet build:*)",
       "Bash(ls:*)",
-      "Bash(dotnet ef:*)"
+      "Bash(dotnet ef:*)",
+      "Bash(find /c/Projetos/DeuxOrders/deuxorders-backend -type d -not -path */obj/* -not -path */bin/*)",
+      "WebFetch(domain:www.abacatepay.com)",
+      "WebFetch(domain:docs.abacatepay.com)"
     ]
   }
 }

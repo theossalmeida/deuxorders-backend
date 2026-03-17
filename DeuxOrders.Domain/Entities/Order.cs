@@ -14,6 +14,8 @@ namespace DeuxOrders.Domain.Entities
         public long TotalPaid { get; private set; }
         public long TotalValue { get; private set; }
         public List<string>? References { get; private set; }
+        public string? PaymentSource { get; private set; }
+        public string? DeliveryAddress { get; private set; }
 
         private readonly List<OrderItem> _items = new();
         public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
@@ -163,6 +165,19 @@ namespace DeuxOrders.Domain.Entities
 
             References = [.. current, .. references];
             UpdatedAt = DateTime.UtcNow;
+        }
+
+        public void SetDeliveryAddress(string? address)
+        {
+            DeliveryAddress = address;
+            UpdatedAt = DateTime.UtcNow;
+        }
+
+        public void SetPaymentSource(string source)
+        {
+            if (source != "ADMIN" && source != "ECOMMERCE")
+                throw new InvalidOperationException("PaymentSource deve ser 'ADMIN' ou 'ECOMMERCE'.");
+            PaymentSource = source;
         }
 
         private void RecalculateTotal()

@@ -11,6 +11,8 @@ namespace DeuxOrders.Infrastructure.Data
         public DbSet<Product> Products { get; set; }
         public DbSet<Client> Clients { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
+        public DbSet<WebhookEventLog> WebhookEventLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -49,6 +51,8 @@ namespace DeuxOrders.Infrastructure.Data
                       .WithOne(i => i.Order)
                       .HasForeignKey(i => i.OrderId)
                       .IsRequired();
+                entity.Property(o => o.PaymentSource).HasMaxLength(20).IsRequired(false);
+                entity.Property(o => o.DeliveryAddress).HasMaxLength(500).IsRequired(false);
             });
 
             // OrderItem mapping
@@ -70,6 +74,47 @@ namespace DeuxOrders.Infrastructure.Data
             modelBuilder.Entity<Product>(entity => {
                 entity.ToTable("products");
                 entity.HasKey(e => e.Id);
+                entity.Property(p => p.AbacateStoreProductId).HasMaxLength(100).IsRequired(false);
+            });
+
+            // PaymentTransaction mapping
+            modelBuilder.Entity<PaymentTransaction>(entity =>
+            {
+                entity.ToTable("payment_transactions");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.AbacateBillingId);
+                entity.HasIndex(e => e.IdempotencyKey).IsUnique();
+                entity.HasIndex(e => e.OrderId);
+                entity.HasOne<Order>()
+                      .WithMany()
+                      .HasForeignKey(e => e.OrderId)
+                      .OnDelete(DeleteBehavior.Restrict);
+                entity.Property(e => e.AbacateBillingId).HasMaxLength(100).IsRequired();
+                entity.Property(e => e.IdempotencyKey).HasMaxLength(100).IsRequired();
+                entity.Property(e => e.PaymentMethod).HasMaxLength(20).IsRequired();
+                entity.Property(e => e.CheckoutUrl).HasMaxLength(500);
+                entity.Property(e => e.ReceiptUrl).HasMaxLength(500);
+                entity.Property(e => e.PayerName).HasMaxLength(200);
+                entity.Property(e => e.PayerTaxIdMasked).HasMaxLength(30);
+                entity.Property(e => e.CardLastFour).HasMaxLength(4);
+                entity.Property(e => e.CardBrand).HasMaxLength(30);
+                entity.Property(e => e.WebhookEventType).HasMaxLength(50);
+                entity.Property(e => e.FailureReason).HasMaxLength(500);
+                entity.Property(e => e.AbacateCustomerId).HasMaxLength(100);
+            });
+
+            // WebhookEventLog mapping
+            modelBuilder.Entity<WebhookEventLog>(entity =>
+            {
+                entity.ToTable("webhook_event_log");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.ReceivedAt);
+                entity.HasIndex(e => e.AbacateBillingId);
+                entity.Property(e => e.EventType).HasMaxLength(50);
+                entity.Property(e => e.SignatureHeader).HasMaxLength(500);
+                entity.Property(e => e.ProcessingResult).HasMaxLength(200);
+                entity.Property(e => e.ErrorMessage).HasMaxLength(1000);
+                entity.Property(e => e.AbacateBillingId).HasMaxLength(100);
             });
         }
     }
