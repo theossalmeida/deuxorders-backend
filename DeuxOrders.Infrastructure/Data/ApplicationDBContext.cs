@@ -69,6 +69,12 @@ namespace DeuxOrders.Infrastructure.Data
                 entity.Property(oi => oi.Observation)
                       .HasMaxLength(500)
                       .IsRequired(false);
+                entity.Property(oi => oi.Massa)
+                      .HasMaxLength(100)
+                      .IsRequired(false);
+                entity.Property(oi => oi.Sabor)
+                      .HasMaxLength(100)
+                      .IsRequired(false);
             });
 
             // Product mapping

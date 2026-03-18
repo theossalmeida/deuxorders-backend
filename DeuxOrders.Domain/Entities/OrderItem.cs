@@ -19,7 +19,7 @@
             UpdatedAt = DateTime.UtcNow;
         }
 
-        public void UpdateDetails(int? quantity, int? paidUnitPrice, string? observation)
+        public void UpdateDetails(int? quantity, int? paidUnitPrice, string? observation, string? massa, string? sabor)
         {
             if (quantity.HasValue)
             {
@@ -38,6 +38,12 @@
             if (observation != null)
                 Observation = observation;
 
+            if (massa != null)
+                Massa = massa;
+
+            if (sabor != null)
+                Sabor = sabor;
+
             TotalPaid = Quantity * PaidUnitPrice;
             TotalValue = Quantity * BaseUnitPrice;
             UpdatedAt = DateTime.UtcNow;
@@ -47,6 +53,8 @@
         public virtual Product Product { get; private set; } = null!;
         public virtual Order Order { get; private set; } = null!;
         public string? Observation { get; private set; }
+        public string? Massa { get; private set; }
+        public string? Sabor { get; private set; }
         public Guid OrderId { get; private set; }
         public DateTime CreatedAt { get; private set; }
         public DateTime? UpdatedAt { get; private set; }
@@ -57,16 +65,17 @@
         public long TotalPaid { get; private set; }
         public long TotalValue { get; private set; }
 
-        public OrderItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice, string? observation)
+        public OrderItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice, string? observation, string? massa = null, string? sabor = null)
         {
             if (quantity < 0) throw new ArgumentException("Quantidade não pode ser negativa.");
             if (paidUnitPrice < 0) throw new ArgumentException("Preço não pode ser negativo.");
-            if (observation != null) { Observation = observation; }
-            ;
             ProductId = productId;
             Quantity = quantity;
             PaidUnitPrice = paidUnitPrice;
             BaseUnitPrice = baseUnitPrice;
+            Observation = observation;
+            Massa = massa;
+            Sabor = sabor;
             CreatedAt = DateTime.UtcNow;
             UpdatedAt = DateTime.UtcNow;
             TotalPaid = Quantity * paidUnitPrice;

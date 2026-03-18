@@ -19,12 +19,14 @@ namespace DeuxOrders.Application.DTOs
         string ProductName,
         string? ProductSize,
         string? Observation,
+        string? Massa,
+        string? Sabor,
         int Quantity,
         int PaidUnitPrice,
         int BaseUnitPrice,
         bool ItemCanceled,
-        long TotalPaid,   
-        long TotalValue   
+        long TotalPaid,
+        long TotalValue
     );
 
     public record ProductResponse(

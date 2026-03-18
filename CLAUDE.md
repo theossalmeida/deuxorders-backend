@@ -82,6 +82,26 @@ order.Status = OrderStatus.Completed; // compile error — private setter
 
 `Order` is the aggregate root for `OrderItem`. Items are only accessible via order methods.
 
+Note: `Product` omits the private parameterless constructor — EF Core ≥ 8 can instantiate it without one. New entities should still include `private Entity() { }` for consistency.
+
+## PostgreSQL Array Columns
+
+`List<string>` properties map to PostgreSQL native `text[]` columns. Configure them in `OnModelCreating`:
+
+```csharp
+entity.Property(o => o.MyList)
+      .HasColumnType("text[]")
+      .IsRequired(false);
+```
+
+No JSON serialization needed — Npgsql handles the mapping natively. See `Order.References` as the reference implementation.
+
+## Product Endpoints: Multipart Form Data
+
+`POST /products/new` and `PUT /products/{id}` use `[FromForm]` (multipart/form-data) because they accept an optional `IFormFile` image. All other endpoints use JSON. Image files are uploaded directly to Cloudflare R2 by the API; clients receive a public URL in the response.
+
+The unused records `CreateProduct` and `UpdateProduct` in `DeuxOrders.Application/DTOs/` are stale — the actual request models used by `ProductController` are `CreateProductRequest` and `UpdateProductRequest` in `DeuxOrders.API/Models/ProductRequests.cs`.
+
 ## Testing
 
 Tests live in `DeuxOrders.Tests` and use xUnit + FluentAssertions. `IntegrationTestFactory<TProgram>` replaces PostgreSQL with an in-memory EF Core provider and injects a test JWT secret. There are no unit test mocks — all tests run against in-memory EF Core.
@@ -127,3 +147,5 @@ All routes are prefixed with `/api/v1/`. All endpoints except `POST /auth/login`
 - `GET /dashboard/export?from=&to=&status=&format=csv|pdf` — Export via QuestPDF (PDF) or custom CSV writer. Excludes canceled items.
 
 Dashboard repository queries use `AsNoTracking()`. Canceled orders are always counted separately regardless of status filter.
+
+**Payments (AbacatePay)** — payment infrastructure exists in the DB (`PaymentTransaction`, `WebhookEventLog`, `CheckoutSession`) but no payment controller has been built yet.

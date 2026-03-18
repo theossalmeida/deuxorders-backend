@@ -11,6 +11,8 @@
         Guid ProductId,
         int Quantity,
         int UnitPrice,
-        string? Observation
+        string? Observation,
+        string? Massa,
+        string? Sabor
     );
 }

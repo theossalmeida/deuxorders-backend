@@ -9,7 +9,9 @@ public record UpdateOrderItemRequest(
     Guid ProductId,
     int? Quantity,
     int? PaidUnitPrice,
-    string? Observation
+    string? Observation,
+    string? Massa,
+    string? Sabor
 );
 
 public record UpdateItemQuantityRequest(int Increment);

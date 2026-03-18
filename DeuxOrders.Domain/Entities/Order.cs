@@ -69,7 +69,7 @@ namespace DeuxOrders.Domain.Entities
             UpdatedAt = DateTime.UtcNow;
         }
 
-        public void AddItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice, string? observation)
+        public void AddItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice, string? observation, string? massa = null, string? sabor = null)
         {
             if (Status != OrderStatus.Received)
                 throw new InvalidOperationException("Não é possível adicionar itens a um pedido não recebido.");
@@ -81,12 +81,12 @@ namespace DeuxOrders.Domain.Entities
             if (existingItem != null)
                 existingItem.UpdateQuantity(quantity);
             else
-                _items.Add(new OrderItem(productId, quantity, paidUnitPrice, baseUnitPrice, observation));
+                _items.Add(new OrderItem(productId, quantity, paidUnitPrice, baseUnitPrice, observation, massa, sabor));
 
             RecalculateTotal();
         }
 
-        public void UpsertItem(Guid productId, int? quantity, int? paidUnitPrice, string? observation, int baseUnitPrice)
+        public void UpsertItem(Guid productId, int? quantity, int? paidUnitPrice, string? observation, int baseUnitPrice, string? massa = null, string? sabor = null)
         {
             var existingItem = _items.FirstOrDefault(x => x.ProductId == productId);
 
@@ -95,11 +95,11 @@ namespace DeuxOrders.Domain.Entities
                 if (quantity == null || quantity <= 0)
                     throw new InvalidOperationException("A quantidade é obrigatória e deve ser maior que zero ao adicionar um novo item.");
 
-                _items.Add(new OrderItem(productId, quantity.Value, paidUnitPrice ?? baseUnitPrice, baseUnitPrice, observation));
+                _items.Add(new OrderItem(productId, quantity.Value, paidUnitPrice ?? baseUnitPrice, baseUnitPrice, observation, massa, sabor));
             }
             else
             {
-                existingItem.UpdateDetails(quantity, paidUnitPrice, observation);
+                existingItem.UpdateDetails(quantity, paidUnitPrice, observation, massa, sabor);
             }
 
             RecalculateTotal();

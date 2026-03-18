@@ -42,7 +42,7 @@ namespace DeuxOrders.Application.Services
                 if (!productsDict.TryGetValue(item.ProductId, out var product))
                     throw new ArgumentException($"Produto {item.ProductId} não encontrado.");
 
-                order.AddItem(item.ProductId, item.Quantity, item.UnitPrice, product.Price, item.Observation);
+                order.AddItem(item.ProductId, item.Quantity, item.UnitPrice, product.Price, item.Observation, item.Massa, item.Sabor);
             }
 
             if (request.References != null)
@@ -86,7 +86,9 @@ namespace DeuxOrders.Application.Services
                         itemRequest.Quantity,
                         itemRequest.PaidUnitPrice,
                         itemRequest.Observation,
-                        product.Price
+                        product.Price,
+                        itemRequest.Massa,
+                        itemRequest.Sabor
                     );
                 }
             }

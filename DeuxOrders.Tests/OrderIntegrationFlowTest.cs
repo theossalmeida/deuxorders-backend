@@ -48,8 +48,8 @@ namespace DeuxOrders.Tests
 
             // 4th TEST: Create 2 orders
             Console.WriteLine("4th TEST: Starting...");
-            var order1Req = new CreateOrderRequest(customerId, DateTime.UtcNow, new List<CreateOrderItemRequest> { new(productId, 5, 1000, "obs 02") }, null);
-            var order2Req = new CreateOrderRequest(customerId, DateTime.UtcNow, new List<CreateOrderItemRequest> { new(productId, 5, 1000, "obs 01") }, null);
+            var order1Req = new CreateOrderRequest(customerId, DateTime.UtcNow, new List<CreateOrderItemRequest> { new(productId, 5, 1000, "obs 02", null, null) }, null);
+            var order2Req = new CreateOrderRequest(customerId, DateTime.UtcNow, new List<CreateOrderItemRequest> { new(productId, 5, 1000, "obs 01", null, null) }, null);
 
             var resOrder1 = await _client.PostAsJsonAsync("/api/v1/orders/new", order1Req);
             Assert.Equal(HttpStatusCode.Created, resOrder1.StatusCode);

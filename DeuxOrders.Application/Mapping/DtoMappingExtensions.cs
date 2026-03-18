@@ -27,12 +27,14 @@ namespace DeuxOrders.Application.Mapping
                 item.Product?.Name ?? "Produto não encontrado",
                 item.Product?.Size,
                 item.Observation,
+                item.Massa,
+                item.Sabor,
                 item.Quantity,
                 item.PaidUnitPrice,
                 item.BaseUnitPrice,
                 item.ItemCanceled,
-                item.TotalPaid,  
-                item.TotalValue  
+                item.TotalPaid,
+                item.TotalValue
             );
         }
 
