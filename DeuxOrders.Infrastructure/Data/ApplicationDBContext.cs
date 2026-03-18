@@ -13,6 +13,7 @@ namespace DeuxOrders.Infrastructure.Data
         public DbSet<User> Users { get; set; }
         public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
         public DbSet<WebhookEventLog> WebhookEventLogs { get; set; }
+        public DbSet<CheckoutSession> CheckoutSessions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -101,6 +102,22 @@ namespace DeuxOrders.Infrastructure.Data
                 entity.Property(e => e.WebhookEventType).HasMaxLength(50);
                 entity.Property(e => e.FailureReason).HasMaxLength(500);
                 entity.Property(e => e.AbacateCustomerId).HasMaxLength(100);
+            });
+
+            // CheckoutSession mapping
+            modelBuilder.Entity<CheckoutSession>(entity =>
+            {
+                entity.ToTable("checkout_sessions");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.AbacateBillingId).IsUnique();
+                entity.Property(e => e.AbacateBillingId).HasMaxLength(100).IsRequired();
+                entity.Property(e => e.AbacateCustomerId).HasMaxLength(100);
+                entity.Property(e => e.ClientName).HasMaxLength(200).IsRequired();
+                entity.Property(e => e.ClientMobile).HasMaxLength(50).IsRequired();
+                entity.Property(e => e.Email).HasMaxLength(200).IsRequired();
+                entity.Property(e => e.TaxId).HasMaxLength(20).IsRequired();
+                entity.Property(e => e.ItemsJson).IsRequired();
+                entity.Property(e => e.CheckoutUrl).HasMaxLength(500);
             });
 
             // WebhookEventLog mapping
