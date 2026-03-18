@@ -92,10 +92,6 @@ namespace DeuxOrders.Infrastructure.Data
                 entity.HasIndex(e => e.AbacateBillingId);
                 entity.HasIndex(e => e.IdempotencyKey).IsUnique();
                 entity.HasIndex(e => e.OrderId);
-                entity.HasOne<Order>()
-                      .WithMany()
-                      .HasForeignKey(e => e.OrderId)
-                      .OnDelete(DeleteBehavior.Restrict);
                 entity.Property(e => e.AbacateBillingId).HasMaxLength(100).IsRequired();
                 entity.Property(e => e.IdempotencyKey).HasMaxLength(100).IsRequired();
                 entity.Property(e => e.PaymentMethod).HasMaxLength(20).IsRequired();
