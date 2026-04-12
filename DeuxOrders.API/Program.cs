@@ -19,6 +19,12 @@ QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Cap multipart form-data body size at 10 MB (product images)
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 10 * 1024 * 1024;
+});
+
 var secret = builder.Configuration.GetValue<string>("JwtSettings:Secret")
              ?? throw new Exception("JWT Secret não encontrada!");
 
@@ -72,8 +78,8 @@ builder.Services.AddCors(options =>
                 "http://127.0.0.1:3000",
                 "https://orders.deuxcerie.com.br"
               )
-              .AllowAnyHeader()
-              .AllowAnyMethod()
+              .WithHeaders("Authorization", "Content-Type")
+              .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
               .AllowCredentials();
     });
 });
@@ -109,6 +115,7 @@ builder.Services.AddSingleton<IStorageService, StorageService>();
 // Rate limiting config
 builder.Services.AddRateLimiter(options =>
 {
+    // Auth endpoint: strict fixed window — 10 req/min
     options.AddFixedWindowLimiter("auth", limiter =>
     {
         limiter.PermitLimit = 10;
@@ -116,7 +123,22 @@ builder.Services.AddRateLimiter(options =>
         limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         limiter.QueueLimit = 0;
     });
+
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Apply global policy to all endpoints by default
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetSlidingWindowLimiter(ip, _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 120,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 6,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0,
+        });
+    });
 });
 
 // Application builder
@@ -135,8 +157,17 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
+    app.UseHttpsRedirection();
     app.UseExceptionHandler();
 }
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
 
 app.UseRateLimiter();
 app.UseAuthentication();

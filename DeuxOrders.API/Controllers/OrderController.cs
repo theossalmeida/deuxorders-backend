@@ -53,6 +53,9 @@ namespace DeuxOrders.API.Controllers
         [HttpPost("references/presigned-url")]
         public IActionResult GetPresignedUploadUrl([FromBody] PresignedUploadRequest request)
         {
+            if (!FileValidation.IsAllowedImage(request.FileName, request.ContentType))
+                return BadRequest("Tipo de arquivo não permitido. Use JPG, PNG ou WebP.");
+
             var extension = Path.GetExtension(request.FileName);
             var objectKey = $"order-references/{Guid.NewGuid()}{extension}";
             var uploadUrl = _storageService.GeneratePresignedUploadUrl(objectKey, request.ContentType);

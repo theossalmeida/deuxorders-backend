@@ -32,6 +32,12 @@ public class ProductController : ControllerBase
 
         if (request.Image != null)
         {
+            if (!FileValidation.IsAllowedImage(request.Image))
+                return BadRequest("Tipo de imagem não permitido. Use JPG, PNG ou WebP.");
+
+            if (request.Image.Length > 5 * 1024 * 1024)
+                return BadRequest("A imagem não pode ser maior que 5 MB.");
+
             var extension = Path.GetExtension(request.Image.FileName);
             var objectKey = $"products-images/{Guid.NewGuid()}{extension}";
             using var stream = request.Image.OpenReadStream();
@@ -58,6 +64,12 @@ public class ProductController : ControllerBase
 
         if (request.Image != null)
         {
+            if (!FileValidation.IsAllowedImage(request.Image))
+                return BadRequest("Tipo de imagem não permitido. Use JPG, PNG ou WebP.");
+
+            if (request.Image.Length > 5 * 1024 * 1024)
+                return BadRequest("A imagem não pode ser maior que 5 MB.");
+
             var extension = Path.GetExtension(request.Image.FileName);
             newObjectKey = $"products-images/{Guid.NewGuid()}{extension}";
             using var stream = request.Image.OpenReadStream();
