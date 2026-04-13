@@ -23,8 +23,8 @@
         {
             if (quantity.HasValue)
             {
-                if (quantity.Value < 0)
-                    throw new InvalidOperationException("A quantidade não pode ser negativa.");
+                if (quantity.Value <= 0)
+                    throw new InvalidOperationException("A quantidade deve ser maior que zero.");
                 Quantity = quantity.Value;
             }
 
@@ -67,8 +67,8 @@
 
         public OrderItem(Guid productId, int quantity, int paidUnitPrice, int baseUnitPrice, string? observation, string? massa = null, string? sabor = null)
         {
-            if (quantity < 0) throw new ArgumentException("Quantidade não pode ser negativa.");
-            if (paidUnitPrice < 0) throw new ArgumentException("Preço não pode ser negativo.");
+            if (quantity <= 0) throw new ArgumentException("A quantidade deve ser maior que zero.");
+            if (paidUnitPrice < 0) throw new ArgumentException("O preço não pode ser negativo.");
             ProductId = productId;
             Quantity = quantity;
             PaidUnitPrice = paidUnitPrice;

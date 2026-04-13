@@ -69,8 +69,7 @@ namespace DeuxOrders.API.Services
             var response = await _httpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadAsStringAsync();
-                throw new InvalidOperationException($"Falha ao fazer upload da imagem para o R2: {error}");
+                throw new InvalidOperationException("Falha ao fazer upload da imagem. Tente novamente mais tarde.");
             }
 
             return objectKey;
@@ -119,7 +118,11 @@ namespace DeuxOrders.API.Services
             request.Headers.TryAddWithoutValidation("x-amz-content-sha256", payloadHash);
             request.Headers.TryAddWithoutValidation("x-amz-date", amzDate);
 
-            await _httpClient.SendAsync(request);
+            var response = await _httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException("Falha ao remover o arquivo. Tente novamente mais tarde.");
+            }
         }
 
         private string BuildPresignedUrl(string method, string objectKey, int expiresInSeconds)
@@ -172,7 +175,10 @@ namespace DeuxOrders.API.Services
         }
 
         private static byte[] Hmac(byte[] key, string data)
-            => new HMACSHA256(key).ComputeHash(Encoding.UTF8.GetBytes(data));
+        {
+            using var hmac = new HMACSHA256(key);
+            return hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
+        }
 
         private static string HmacHex(byte[] key, string data)
             => Convert.ToHexString(Hmac(key, data)).ToLower();

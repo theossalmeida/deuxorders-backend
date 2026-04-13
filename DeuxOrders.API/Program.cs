@@ -115,13 +115,17 @@ builder.Services.AddSingleton<IStorageService, StorageService>();
 // Rate limiting config
 builder.Services.AddRateLimiter(options =>
 {
-    // Auth endpoint: strict fixed window — 10 req/min
-    options.AddFixedWindowLimiter("auth", limiter =>
+    // Auth endpoint: strict fixed window per IP — 10 req/min
+    options.AddPolicy<string>("auth", context =>
     {
-        limiter.PermitLimit = 10;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiter.QueueLimit = 0;
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0,
+        });
     });
 
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -146,9 +150,6 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
-// CORS
-app.UseCors("FrontendPolicy");
-
 // Middlewares and debug config
 if (app.Environment.IsDevelopment())
 {
@@ -161,13 +162,19 @@ else
     app.UseExceptionHandler();
 }
 
+// Security headers — before CORS so they apply to all responses including preflight
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["X-Frame-Options"] = "DENY";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+    context.Response.Headers["Content-Security-Policy"] = "default-src 'none'";
     await next();
 });
+
+// CORS
+app.UseCors("FrontendPolicy");
 
 app.UseRateLimiter();
 app.UseAuthentication();

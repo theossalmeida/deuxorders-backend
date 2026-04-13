@@ -57,6 +57,9 @@
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Nome não pode ser nulo ou vazio.");
 
+            if (price < 0)
+                throw new ArgumentException("Preço não pode ser negativo.");
+
             Id = Guid.NewGuid();
             ProductStatus = true;
             CreatedAt = DateTime.UtcNow;

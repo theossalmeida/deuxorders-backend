@@ -14,7 +14,7 @@ namespace DeuxOrders.API.Validations
                 .MaximumLength(100).WithMessage("O nome não pode exceder 100 caracteres.");
 
             RuleFor(x => x.Price)
-                .GreaterThan(0).WithMessage("O preço do produto deve ser maior que zero.");
+                .GreaterThanOrEqualTo(0).WithMessage("O preço do produto não pode ser negativo.");
 
             When(x => x.Image != null, () =>
             {
@@ -40,7 +40,7 @@ namespace DeuxOrders.API.Validations
                 .MaximumLength(100).WithMessage("O nome não pode exceder 100 caracteres.");
 
             RuleFor(x => x.Price)
-                .GreaterThan(0).WithMessage("O preço do produto deve ser maior que zero.");
+                .GreaterThanOrEqualTo(0).WithMessage("O preço do produto não pode ser negativo.");
 
             When(x => x.Image != null, () =>
             {

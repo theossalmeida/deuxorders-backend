@@ -28,7 +28,7 @@ namespace DeuxOrders.Application.Services
         {
             var client = await _clientRepository.GetByIdAsync(request.ClientId);
             if (client == null || !client.Status)
-                throw new ArgumentException("Cliente inexistente ou inativo.");
+                throw new InvalidOperationException("Cliente inexistente ou inativo.");
 
             var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
             var dbProducts = await _productRepository.GetByManyIdsAsync(productIds);
@@ -40,7 +40,10 @@ namespace DeuxOrders.Application.Services
             foreach (var item in request.Items)
             {
                 if (!productsDict.TryGetValue(item.ProductId, out var product))
-                    throw new ArgumentException($"Produto {item.ProductId} não encontrado.");
+                    throw new InvalidOperationException($"Produto {item.ProductId} não encontrado.");
+
+                if (!product.ProductStatus)
+                    throw new InvalidOperationException($"O produto '{product.Name}' está inativo e não pode ser adicionado a um novo pedido.");
 
                 order.AddItem(item.ProductId, item.Quantity, item.UnitPrice, product.Price, item.Observation, item.Massa, item.Sabor);
             }
@@ -80,6 +83,10 @@ namespace DeuxOrders.Application.Services
                 {
                     if (!productsDict.TryGetValue(itemRequest.ProductId, out var product))
                         throw new InvalidOperationException($"Produto {itemRequest.ProductId} não encontrado.");
+
+                    var isNewItem = !order.Items.Any(i => i.ProductId == itemRequest.ProductId);
+                    if (isNewItem && !product.ProductStatus)
+                        throw new InvalidOperationException($"O produto '{product.Name}' está inativo e não pode ser adicionado ao pedido.");
 
                     order.UpsertItem(
                         itemRequest.ProductId,

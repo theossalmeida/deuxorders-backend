@@ -62,8 +62,11 @@ namespace DeuxOrders.Domain.Entities
         {
             if (Status == status) return;
 
-            if (status == OrderStatus.Completed && Status == OrderStatus.Canceled)
-                throw new InvalidOperationException("Não é possível concluir um pedido que foi cancelado.");
+            if (Status == OrderStatus.Completed)
+                throw new InvalidOperationException("Não é possível alterar o status de um pedido já concluído.");
+
+            if (Status == OrderStatus.Canceled)
+                throw new InvalidOperationException("Não é possível alterar o status de um pedido cancelado.");
 
             Status = status;
             UpdatedAt = DateTime.UtcNow;

@@ -17,4 +17,13 @@ namespace DeuxOrders.API.Validations
             RuleFor(x => x.Email).NotEmpty().EmailAddress().WithMessage("E-mail inválido.");
         }
     }
+
+    public class LoginRequestValidator : AbstractValidator<LoginRequest>
+    {
+        public LoginRequestValidator()
+        {
+            RuleFor(x => x.Email).NotEmpty().EmailAddress().WithMessage("E-mail inválido.");
+            RuleFor(x => x.Password).NotEmpty().WithMessage("A senha é obrigatória.");
+        }
+    }
 }

@@ -21,7 +21,7 @@ namespace DeuxOrders.Infrastructure.Repositories
             return await _context.Clients
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
-        public async Task<IEnumerable<Client>> GetAll(string? search, bool? status)
+        public async Task<PagedResult<Client>> GetAll(string? search, bool? status, int page = 1, int size = 20)
         {
             var query = _context.Clients.AsNoTracking();
 
@@ -31,7 +31,14 @@ namespace DeuxOrders.Infrastructure.Repositories
             if (!string.IsNullOrWhiteSpace(search))
                 query = query.Where(c => c.Name.ToLower().Contains(search.ToLower()));
 
-            return await query.ToListAsync();
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .OrderBy(c => c.Name)
+                .Skip((page - 1) * size)
+                .Take(size)
+                .ToListAsync();
+
+            return new PagedResult<Client>(items, totalCount, page, size);
         }
 
         public void Add(Client client)

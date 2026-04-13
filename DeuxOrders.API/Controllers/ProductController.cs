@@ -155,14 +155,21 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet("all")]
-    public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] bool? status)
+    public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] bool? status, [FromQuery] int page = 1, [FromQuery] int size = 20)
     {
-        var products = await _repository.GetAllAsync(search, status);
-        return Ok(products.Select(p =>
+        if (size > 100) size = 100;
+        var result = await _repository.GetAllAsync(search, status, page, size);
+        return Ok(new
         {
-            var imageUrl = p.Image != null ? _storageService.GetPublicUrl(p.Image) : null;
-            return p.ToResponse(imageUrl);
-        }));
+            items = result.Items.Select(p =>
+            {
+                var imageUrl = p.Image != null ? _storageService.GetPublicUrl(p.Image) : null;
+                return p.ToResponse(imageUrl);
+            }),
+            totalCount = result.TotalCount,
+            pageNumber = result.PageNumber,
+            pageSize = result.PageSize
+        });
     }
 
     [HttpDelete("{id}")]

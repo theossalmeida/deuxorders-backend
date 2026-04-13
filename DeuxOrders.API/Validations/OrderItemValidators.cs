@@ -38,8 +38,8 @@ namespace DeuxOrders.API.Validations
                 .WithMessage("O produto é obrigatório.");
 
             RuleFor(x => x.Quantity)
-                .GreaterThanOrEqualTo(0)
-                .WithMessage("A quantidade não pode ser negativa.");
+                .GreaterThan(0)
+                .WithMessage("A quantidade deve ser maior que zero.");
 
             RuleFor(x => x.UnitPrice)
                 .GreaterThanOrEqualTo(0)

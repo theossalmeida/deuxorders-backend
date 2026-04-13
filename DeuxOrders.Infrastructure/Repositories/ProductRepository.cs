@@ -47,7 +47,7 @@ namespace DeuxOrders.Infrastructure.Repositories
                 .Where(p => ids.Contains(p.Id))
                 .ToListAsync();
         }
-        public async Task<IEnumerable<Product>> GetAllAsync(string? search, bool? status)
+        public async Task<PagedResult<Product>> GetAllAsync(string? search, bool? status, int page = 1, int size = 20)
         {
             var query = _context.Products.AsNoTracking();
 
@@ -57,7 +57,14 @@ namespace DeuxOrders.Infrastructure.Repositories
             if (!string.IsNullOrWhiteSpace(search))
                 query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()));
 
-            return await query.ToListAsync();
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .OrderBy(p => p.Name)
+                .Skip((page - 1) * size)
+                .Take(size)
+                .ToListAsync();
+
+            return new PagedResult<Product>(items, totalCount, page, size);
         }
         public async Task<IEnumerable<ProductDropdownModel>> GetForDropdownAsync(bool? status)
         {

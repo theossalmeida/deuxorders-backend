@@ -100,10 +100,17 @@ public class ClientController : ControllerBase
     }
 
     [HttpGet("all")]
-    public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] bool? status)
+    public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] bool? status, [FromQuery] int page = 1, [FromQuery] int size = 20)
     {
-        var clients = await _repository.GetAll(search, status);
-        return Ok(clients.Select(c => c.ToResponse()));
+        if (size > 100) size = 100;
+        var result = await _repository.GetAll(search, status, page, size);
+        return Ok(new
+        {
+            items = result.Items.Select(c => c.ToResponse()),
+            totalCount = result.TotalCount,
+            pageNumber = result.PageNumber,
+            pageSize = result.PageSize
+        });
     }
 
     [HttpDelete("{id}")]

@@ -9,7 +9,8 @@
       "WebFetch(domain:www.abacatepay.com)",
       "WebFetch(domain:docs.abacatepay.com)",
       "Bash(xargs grep:*)",
-      "Bash(docker-compose up:*)"
+      "Bash(docker-compose up:*)",
+      "Bash(dotnet tool:*)"
     ]
   }
 }

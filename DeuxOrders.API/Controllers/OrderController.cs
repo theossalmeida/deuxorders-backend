@@ -126,18 +126,11 @@ namespace DeuxOrders.API.Controllers
             var order = await _repository.GetByIdAsync(id);
             if (order == null) return NotFound("Pedido não encontrado.");
 
-            try
-            {
-                order.UpdateItemQuantity(productId, request.Increment);
-                if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
+            order.UpdateItemQuantity(productId, request.Increment);
+            if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-                var signedUrls = _storageService.GetSignedReadUrls(order.References);
-                return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            var signedUrls = _storageService.GetSignedReadUrls(order.References);
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
         }
 
         [HttpGet("{id}")]

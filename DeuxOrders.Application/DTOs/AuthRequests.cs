@@ -6,7 +6,7 @@ public record RegisterRequest(
     [Required(ErrorMessage = "Nome é obrigatório")] string Name,
     [Required] string Username,
     [Required, EmailAddress(ErrorMessage = "E-mail inválido")] string Email,
-    [Required, MinLength(6, ErrorMessage = "A senha deve ter no mínimo 6 caracteres")] string Password
+    [Required, MinLength(8, ErrorMessage = "A senha deve ter no mínimo 8 caracteres")] string Password
 );
 
 public record LoginRequest(

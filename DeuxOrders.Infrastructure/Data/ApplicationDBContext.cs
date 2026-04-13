@@ -22,6 +22,7 @@ namespace DeuxOrders.Infrastructure.Data
                 entity.ToTable("users");
                 entity.HasKey(e => e.Id);
                 entity.HasIndex(e => e.Email).IsUnique();
+                entity.HasIndex(e => e.Username).IsUnique();
                 entity.Property(e => e.Email).HasMaxLength(150).IsRequired();
                 entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
                 entity.Property(e => e.Username).HasMaxLength(100).IsRequired();
@@ -33,6 +34,7 @@ namespace DeuxOrders.Infrastructure.Data
             {
                 entity.ToTable("clients");
                 entity.HasKey(e => e.Id);
+                entity.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
             });
 
             // Order mapping
@@ -40,6 +42,7 @@ namespace DeuxOrders.Infrastructure.Data
             {
                 entity.ToTable("orders");
                 entity.HasKey(o => o.Id);
+                entity.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
                 entity.HasOne(o => o.Client)
                       .WithMany()
                       .HasForeignKey(o => o.ClientId)
@@ -82,6 +85,7 @@ namespace DeuxOrders.Infrastructure.Data
                 entity.ToTable("products");
                 entity.HasKey(e => e.Id);
                 entity.Property(p => p.AbacateStoreProductId).HasMaxLength(100).IsRequired(false);
+                entity.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
             });
 
             // PaymentTransaction mapping
