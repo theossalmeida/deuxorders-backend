@@ -1,4 +1,6 @@
-﻿using DeuxOrders.Domain.Sales;
+﻿using DeuxOrders.Application.Common;
+using DeuxOrders.Domain.Common;
+using DeuxOrders.Domain.Sales;
 using DeuxOrders.Domain.Payments;
 using DeuxOrders.Domain.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +9,34 @@ namespace DeuxOrders.Infrastructure.Data
 {
     public class ApplicationDbContext : DbContext
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+        private readonly IDomainEventDispatcher _dispatcher;
+
+        public ApplicationDbContext(
+            DbContextOptions<ApplicationDbContext> options,
+            IDomainEventDispatcher dispatcher) : base(options)
+        {
+            _dispatcher = dispatcher;
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            var entitiesWithEvents = ChangeTracker.Entries<Entity>()
+                .Where(e => e.Entity.DomainEvents.Count > 0)
+                .Select(e => e.Entity)
+                .ToList();
+
+            var events = entitiesWithEvents.SelectMany(e => e.DomainEvents).ToList();
+
+            var result = await base.SaveChangesAsync(cancellationToken);
+
+            foreach (var entity in entitiesWithEvents)
+                entity.ClearDomainEvents();
+
+            if (events.Count > 0)
+                await _dispatcher.Dispatch(events, cancellationToken);
+
+            return result;
+        }
 
         public DbSet<Order> Orders { get; set; }
         public DbSet<Product> Products { get; set; }
