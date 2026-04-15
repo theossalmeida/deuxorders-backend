@@ -25,6 +25,8 @@ namespace DeuxOrders.Tests
 {
     public class IntegrationTestFactory<TProgram> : WebApplicationFactory<TProgram> where TProgram : class
     {
+        private readonly string _dbName = $"DeuxOrders_Test_{Guid.NewGuid():N}";
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Development");
@@ -56,7 +58,7 @@ namespace DeuxOrders.Tests
 
                 services.AddDbContext<ApplicationDbContext>(options =>
                 {
-                    options.UseInMemoryDatabase("DeuxOrders_Integration_Static_Db");
+                    options.UseInMemoryDatabase(_dbName);
                     options.ConfigureWarnings(x => x.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
                 });
 

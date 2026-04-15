@@ -11,7 +11,9 @@ namespace DeuxOrders.Application.DTOs
         long TotalPaid,
         long TotalValue,
         List<string>? References,
-        List<OrderItemResponse> Items
+        List<OrderItemResponse> Items,
+        DateTime? PaidAt,
+        string? PaidByUserName
     );
 
     public record OrderItemResponse(

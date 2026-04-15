@@ -165,16 +165,15 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
-// Middlewares and debug config
+app.UseExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.UseDeveloperExceptionPage();
 }
 else
 {
     app.UseHttpsRedirection();
-    app.UseExceptionHandler();
 }
 
 // Security headers — before CORS so they apply to all responses including preflight

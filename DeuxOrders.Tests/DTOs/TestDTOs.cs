@@ -12,4 +12,16 @@ namespace DeuxOrders.Tests.DTOs
         int PageNumber,
         int PageSize
     );
+    public record PagedCashResponse(
+        List<DeuxOrders.Application.DTOs.CashEntryResponse> Items,
+        int TotalCount,
+        int PageNumber,
+        int PageSize
+    );
+    public record CashSummaryResponse(
+        long TotalInflowCents,
+        long TotalOutflowCents,
+        long NetBalanceCents,
+        int TotalCount
+    );
 }

@@ -18,6 +18,12 @@ namespace DeuxOrders.Tests
         }
 
         protected async Task AuthenticateAsync()
+            => await AuthenticateWithRoleAsync(UserRole.User);
+
+        protected async Task AuthenticateAsAdminAsync()
+            => await AuthenticateWithRoleAsync(UserRole.Administrator);
+
+        private async Task AuthenticateWithRoleAsync(UserRole role)
         {
             _client.DefaultRequestHeaders.Authorization = null;
 
@@ -29,7 +35,7 @@ namespace DeuxOrders.Tests
             {
                 var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var hash = BCrypt.Net.BCrypt.HashPassword(password);
-                var user = new User("Teste", $"user{suffix}", hash, email, UserRole.User);
+                var user = new User("Teste", $"user{suffix}", hash, email, role);
                 db.Users.Add(user);
                 await db.SaveChangesAsync();
             }
