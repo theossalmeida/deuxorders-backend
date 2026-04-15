@@ -1,5 +1,7 @@
 using DeuxOrders.API.Services;
+using DeuxOrders.Application.Common;
 using DeuxOrders.Domain.Interfaces;
+using DeuxOrders.Infrastructure.Services;
 using QuestPDF.Infrastructure;
 using DeuxOrders.Infrastructure.Data;
 using DeuxOrders.Infrastructure.Repositories;
@@ -106,6 +108,8 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
+builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+
 // Services config
 builder.Services.AddScoped<DeuxOrders.Application.Services.OrderService>();
 builder.Services.AddScoped<DeuxOrders.Application.Services.DashboardService>();
