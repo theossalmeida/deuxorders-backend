@@ -16,7 +16,9 @@ namespace DeuxOrders.Application.Mapping
                 (long)order.TotalPaid,
                 (long)order.TotalValue,
                 signedReferenceUrls,
-                order.Items.Select(i => i.ToResponse()).ToList()
+                order.Items.Select(i => i.ToResponse()).ToList(),
+                order.PaidAt,
+                order.PaidByUserName
             );
         }
 
