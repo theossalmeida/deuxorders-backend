@@ -1,6 +1,8 @@
 using DeuxOrders.API.Services;
+using DeuxOrders.Infrastructure.Cash.Handlers;
 using DeuxOrders.Application.Common;
 using DeuxOrders.Domain.Interfaces;
+using DeuxOrders.Domain.Sales.Events;
 using DeuxOrders.Infrastructure.Services;
 using QuestPDF.Infrastructure;
 using DeuxOrders.Infrastructure.Data;
@@ -109,6 +111,8 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+builder.Services.AddScoped<IDomainEventHandler<OrderPaidEvent>, OrderPaidEventHandler>();
+builder.Services.AddScoped<IDomainEventHandler<OrderPaymentReversedEvent>, OrderPaymentReversedEventHandler>();
 builder.Services.AddScoped<DeuxOrders.Domain.Interfaces.ICashFlowRepository, DeuxOrders.Infrastructure.Repositories.CashFlowRepository>();
 builder.Services.AddScoped<DeuxOrders.Application.Services.CashFlowService>();
 
