@@ -1,52 +1,60 @@
 name: Deux Orders CI
-
 on:
-  push:
-    branches: [ "*" ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    
-    permissions:
-      contents: read
-      checks: write
-      pull-requests: write
+    push:
+      branches: [ "*" ]
+    pull_request:
+      branches: [ main ]
       
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+jobs:
+   build-and-test:
+      runs-on: ubuntu-latest
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
+      permissions:
+        contents: read
+        checks: write
+        pull-requests: write
 
-    - name: Cache NuGet packages
-      uses: actions/cache@v4
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+      steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Restore dependencies
-      run: dotnet restore
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
 
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
 
-    - name: Test
-      run: |
-        dotnet test --configuration Release --no-build --verbosity normal \
-        --logger "trx;LogFileName=test-results.trx"
+      - name: Restore dependencies
+        run: dotnet restore
 
-    - name: Test Report
-      uses: dorny/test-reporter@v1
-      if: always() # Roda mesmo se os testes falharem
-      with:
-        name: xUnit Test Results
-        path: "**/test-results.trx"
-        reporter: dotnet-trx
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: |
+          dotnet test --configuration Release --no-build --verbosity normal \
+            --logger "trx;LogFileName=test-results.trx" \
+            --results-dir ./test-results
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: ./test-results/*.trx
+          retention-days: 7
+
+      - name: Test Report
+        uses: dorny/test-reporter@31a54ee7ebcacc03a09ea97a7e5465a47b84aea5
+        if: always()
+        with:
+          name: xUnit Test Results
+          path: "./test-results/*.trx"
+          reporter: dotnet-trx
