@@ -49,6 +49,9 @@ public class CashFlowService
         await _unitOfWork.CommitAsync();
     }
 
+    public Task<CashFlowEntry?> GetByIdAsync(Guid id, bool includeDeleted = false)
+        => _repository.GetByIdAsync(id, includeDeleted);
+
     public Task<PagedResult<CashFlowEntry>> ListAsync(CashFlowFilter filter, int page, int size)
         => _repository.ListAsync(filter, page, size);
 
