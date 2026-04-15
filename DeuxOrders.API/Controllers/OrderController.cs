@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 
 public record PresignedUploadRequest(string FileName, string ContentType);
 public record RemoveReferenceRequest(string ObjectKey);
+public record UnpayRequest(string Reason);
 
 namespace DeuxOrders.API.Controllers
 {
@@ -161,6 +162,40 @@ namespace DeuxOrders.API.Controllers
                 pageNumber = result.PageNumber,
                 pageSize = result.PageSize
             });
+        }
+
+        [HttpPatch("{id}/pay")]
+        [Authorize(Roles = "Administrator")]
+        public async Task<IActionResult> MarkAsPaid(Guid id)
+        {
+            var order = await _repository.GetByIdAsync(id);
+            if (order == null) return NotFound();
+
+            var userId = Guid.Parse(User.FindFirst("id")!.Value);
+            var userName = User.FindFirst("email")!.Value;
+
+            order.MarkAsPaid(userId, userName, DateTime.UtcNow);
+            await _unitOfWork.CommitAsync();
+
+            var signedUrls = _storageService.GetSignedReadUrls(order.References);
+            return Ok(order.ToResponse(order.Client?.Name ?? "", signedUrls));
+        }
+
+        [HttpPatch("{id}/unpay")]
+        [Authorize(Roles = "Administrator")]
+        public async Task<IActionResult> UnmarkAsPaid(Guid id, [FromBody] UnpayRequest request)
+        {
+            var order = await _repository.GetByIdAsync(id);
+            if (order == null) return NotFound();
+
+            var userId = Guid.Parse(User.FindFirst("id")!.Value);
+            var userName = User.FindFirst("email")!.Value;
+
+            order.UnmarkAsPaid(userId, userName, request.Reason);
+            await _unitOfWork.CommitAsync();
+
+            var signedUrls = _storageService.GetSignedReadUrls(order.References);
+            return Ok(order.ToResponse(order.Client?.Name ?? "", signedUrls));
         }
 
         [HttpDelete("{id}")]
