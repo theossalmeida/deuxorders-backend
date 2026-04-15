@@ -1,6 +1,5 @@
 ﻿using DeuxOrders.API.DTOs;
-using DeuxOrders.Domain.Entities;
-using DeuxOrders.Domain.Enums;
+using DeuxOrders.Domain.Identity;
 using DeuxOrders.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

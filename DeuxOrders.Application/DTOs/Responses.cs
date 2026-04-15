@@ -1,4 +1,4 @@
-﻿using DeuxOrders.Domain.Enums;
+﻿using DeuxOrders.Domain.Sales;
 
 namespace DeuxOrders.Application.DTOs
 {

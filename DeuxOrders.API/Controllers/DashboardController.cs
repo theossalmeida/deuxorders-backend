@@ -1,6 +1,6 @@
 using DeuxOrders.API.Services;
 using DeuxOrders.Application.Services;
-using DeuxOrders.Domain.Enums;
+using DeuxOrders.Domain.Sales;
 using DeuxOrders.Domain.Interfaces;
 using DeuxOrders.Domain.Models;
 using Microsoft.AspNetCore.Authorization;

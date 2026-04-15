@@ -2,7 +2,7 @@
 using DeuxOrders.Application.DTOs;
 using DeuxOrders.Application.Mapping;
 using DeuxOrders.Application.Services;
-using DeuxOrders.Domain.Enums;
+using DeuxOrders.Domain.Sales;
 using DeuxOrders.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

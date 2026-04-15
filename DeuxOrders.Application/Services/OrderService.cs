@@ -1,7 +1,6 @@
-﻿using DeuxOrders.Domain.Entities;
+﻿using DeuxOrders.Domain.Sales;
 using DeuxOrders.Domain.Interfaces;
 using DeuxOrders.Application.DTOs;
-using DeuxOrders.Domain.Enums;
 
 namespace DeuxOrders.Application.Services
 {

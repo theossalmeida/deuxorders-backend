@@ -1,4 +1,4 @@
-using DeuxOrders.Domain.Entities;
+using DeuxOrders.Domain.Payments;
 using DeuxOrders.Domain.Interfaces;
 using DeuxOrders.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;

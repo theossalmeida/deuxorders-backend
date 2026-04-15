@@ -1,5 +1,5 @@
 using DeuxOrders.Application.DTOs;
-using DeuxOrders.Domain.Enums;
+using DeuxOrders.Domain.Sales;
 using DeuxOrders.Domain.Interfaces;
 using DeuxOrders.Domain.Models;
 

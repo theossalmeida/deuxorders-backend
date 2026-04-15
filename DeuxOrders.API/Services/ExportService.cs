@@ -1,4 +1,4 @@
-using DeuxOrders.Domain.Enums;
+using DeuxOrders.Domain.Sales;
 using DeuxOrders.Domain.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;

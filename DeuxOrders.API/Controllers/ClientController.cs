@@ -1,5 +1,5 @@
 ﻿using DeuxOrders.Application.Mapping;
-using DeuxOrders.Domain.Entities;
+using DeuxOrders.Domain.Sales;
 using DeuxOrders.Domain.Interfaces;
 using DeuxOrders.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authorization;

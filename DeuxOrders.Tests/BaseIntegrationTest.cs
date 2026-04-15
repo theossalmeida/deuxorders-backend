@@ -1,5 +1,4 @@
-﻿using DeuxOrders.Domain.Entities;
-using DeuxOrders.Domain.Enums;
+﻿using DeuxOrders.Domain.Identity;
 using DeuxOrders.Infrastructure.Data;
 using DeuxOrders.Tests.DTOs;
 using Microsoft.Extensions.DependencyInjection;

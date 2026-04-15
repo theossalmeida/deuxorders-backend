@@ -1,5 +1,5 @@
 ﻿using DeuxOrders.Application.DTOs;
-using DeuxOrders.Domain.Enums;
+using DeuxOrders.Domain.Sales;
 
 namespace DeuxOrders.Tests.DTOs
 {

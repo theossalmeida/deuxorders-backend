@@ -1,4 +1,4 @@
-﻿using DeuxOrders.Domain.Entities;
+﻿using DeuxOrders.Domain.Identity;
 
 namespace DeuxOrders.Domain.Interfaces
 {
