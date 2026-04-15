@@ -1,4 +1,5 @@
 ﻿using DeuxOrders.Application.Common;
+using DeuxOrders.Domain.Cash;
 using DeuxOrders.Domain.Common;
 using DeuxOrders.Domain.Sales;
 using DeuxOrders.Domain.Payments;
@@ -45,6 +46,8 @@ namespace DeuxOrders.Infrastructure.Data
         public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
         public DbSet<WebhookEventLog> WebhookEventLogs { get; set; }
         public DbSet<CheckoutSession> CheckoutSessions { get; set; }
+        public DbSet<CashFlowEntry> CashFlowEntries { get; set; }
+        public DbSet<CashFlowAuditLog> CashFlowAuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -170,6 +173,43 @@ namespace DeuxOrders.Infrastructure.Data
                 entity.Property(e => e.ProcessingResult).HasMaxLength(200);
                 entity.Property(e => e.ErrorMessage).HasMaxLength(1000);
                 entity.Property(e => e.AbacateBillingId).HasMaxLength(100);
+            });
+
+            // CashFlowEntry mapping
+            modelBuilder.Entity<CashFlowEntry>(entity =>
+            {
+                entity.ToTable("cash_flow_entries", "cash");
+                entity.HasKey(e => e.Id);
+                entity.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid")
+                    .ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
+                entity.Property(e => e.Counterparty).HasMaxLength(200).IsRequired();
+                entity.Property(e => e.Notes).HasMaxLength(2000);
+                entity.Property(e => e.AuthorUserName).HasMaxLength(200).IsRequired();
+                entity.Property(e => e.UpdatedByUserName).HasMaxLength(200);
+                entity.Property(e => e.DeletedByUserName).HasMaxLength(200);
+                entity.Property(e => e.DeletionReason).HasMaxLength(500);
+
+                entity.HasIndex(e => e.BillingDate);
+                entity.HasIndex(e => new { e.Type, e.BillingDate });
+                entity.HasIndex(e => new { e.Category, e.BillingDate });
+                entity.HasIndex(e => e.AuthorUserId);
+                entity.HasIndex(e => new { e.Source, e.SourceId })
+                    .IsUnique()
+                    .HasFilter("\"Source\" <> 1");
+
+                entity.HasQueryFilter(e => e.DeletedAt == null);
+            });
+
+            // CashFlowAuditLog mapping
+            modelBuilder.Entity<CashFlowAuditLog>(entity =>
+            {
+                entity.ToTable("cash_flow_audit_log", "cash");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.SnapshotJson).HasColumnType("jsonb").IsRequired();
+                entity.Property(e => e.PreviousSnapshotJson).HasColumnType("jsonb");
+                entity.Property(e => e.UserName).HasMaxLength(200).IsRequired();
+                entity.HasIndex(e => e.EntryId);
+                entity.HasIndex(e => e.OccurredAt);
             });
         }
     }
