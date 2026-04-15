@@ -1,4 +1,5 @@
 ﻿using DeuxOrders.Domain.Common;
+using DeuxOrders.Domain.Sales.Events;
 
 namespace DeuxOrders.Domain.Sales
 {
@@ -16,6 +17,10 @@ namespace DeuxOrders.Domain.Sales
         public List<string>? References { get; private set; }
         public string? PaymentSource { get; private set; }
         public string? DeliveryAddress { get; private set; }
+
+        public DateTime? PaidAt { get; private set; }
+        public Guid? PaidByUserId { get; private set; }
+        public string? PaidByUserName { get; private set; }
 
         private readonly List<OrderItem> _items = new();
         public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
@@ -181,6 +186,45 @@ namespace DeuxOrders.Domain.Sales
             if (source != "ADMIN" && source != "ECOMMERCE")
                 throw new InvalidOperationException("PaymentSource deve ser 'ADMIN' ou 'ECOMMERCE'.");
             PaymentSource = source;
+        }
+
+        public void MarkAsPaid(Guid userId, string userName, DateTime paidAt)
+        {
+            if (Status == OrderStatus.Canceled)
+                throw new InvalidOperationException("Não é possível marcar como pago um pedido cancelado.");
+            if (TotalPaid <= 0)
+                throw new InvalidOperationException("Não é possível marcar como pago um pedido sem valor.");
+            if (string.IsNullOrWhiteSpace(userName))
+                throw new ArgumentException("O nome do autor é obrigatório.", nameof(userName));
+            if (PaidAt.HasValue) return;
+
+            PaidAt = paidAt;
+            PaidByUserId = userId;
+            PaidByUserName = userName;
+            UpdatedAt = DateTime.UtcNow;
+
+            AddDomainEvent(new OrderPaidEvent(
+                Id, ClientId, Client?.Name ?? string.Empty, TotalPaid, paidAt, userId, userName));
+        }
+
+        public void UnmarkAsPaid(Guid userId, string userName, string reason)
+        {
+            if (!PaidAt.HasValue)
+                throw new InvalidOperationException("O pedido não está marcado como pago.");
+            if (string.IsNullOrWhiteSpace(reason) || reason.Length < 5)
+                throw new ArgumentException("O motivo da reversão é obrigatório (mínimo 5 caracteres).", nameof(reason));
+
+            var originalPaidAt = PaidAt.Value;
+            var originalAmount = TotalPaid;
+
+            PaidAt = null;
+            PaidByUserId = null;
+            PaidByUserName = null;
+            UpdatedAt = DateTime.UtcNow;
+
+            AddDomainEvent(new OrderPaymentReversedEvent(
+                Id, ClientId, Client?.Name ?? string.Empty, originalAmount,
+                originalPaidAt, userId, userName, reason));
         }
 
         private void RecalculateTotal()

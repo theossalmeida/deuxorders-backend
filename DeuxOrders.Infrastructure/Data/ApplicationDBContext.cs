@@ -59,6 +59,7 @@ namespace DeuxOrders.Infrastructure.Data
                       .IsRequired();
                 entity.Property(o => o.PaymentSource).HasMaxLength(20).IsRequired(false);
                 entity.Property(o => o.DeliveryAddress).HasMaxLength(500).IsRequired(false);
+                entity.Property(o => o.PaidByUserName).HasMaxLength(200).IsRequired(false);
             });
 
             // OrderItem mapping
