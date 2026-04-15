@@ -109,6 +109,8 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+builder.Services.AddScoped<DeuxOrders.Domain.Interfaces.ICashFlowRepository, DeuxOrders.Infrastructure.Repositories.CashFlowRepository>();
+builder.Services.AddScoped<DeuxOrders.Application.Services.CashFlowService>();
 
 // Services config
 builder.Services.AddScoped<DeuxOrders.Application.Services.OrderService>();
