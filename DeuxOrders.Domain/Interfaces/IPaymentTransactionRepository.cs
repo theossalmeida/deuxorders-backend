@@ -1,4 +1,4 @@
-using DeuxOrders.Domain.Entities;
+using DeuxOrders.Domain.Payments;
 
 namespace DeuxOrders.Domain.Interfaces
 {

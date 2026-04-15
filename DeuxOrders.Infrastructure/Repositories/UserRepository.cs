@@ -1,4 +1,4 @@
-﻿using DeuxOrders.Domain.Entities;
+﻿using DeuxOrders.Domain.Identity;
 using DeuxOrders.Domain.Interfaces;
 using DeuxOrders.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;

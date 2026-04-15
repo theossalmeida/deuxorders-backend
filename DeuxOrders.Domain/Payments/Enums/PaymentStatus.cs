@@ -1,4 +1,4 @@
-namespace DeuxOrders.Domain.Enums
+namespace DeuxOrders.Domain.Payments
 {
     public enum PaymentStatus
     {

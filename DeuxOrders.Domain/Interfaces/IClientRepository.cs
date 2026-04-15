@@ -1,5 +1,5 @@
 ﻿using DeuxOrders.Domain.Models;
-using DeuxOrders.Domain.Entities;
+using DeuxOrders.Domain.Sales;
 
 namespace DeuxOrders.Domain.Interfaces
 {

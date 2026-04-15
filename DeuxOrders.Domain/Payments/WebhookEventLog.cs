@@ -1,4 +1,4 @@
-namespace DeuxOrders.Domain.Entities
+namespace DeuxOrders.Domain.Payments
 {
     public class WebhookEventLog
     {

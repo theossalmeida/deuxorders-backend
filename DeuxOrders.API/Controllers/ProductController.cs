@@ -1,7 +1,7 @@
 using DeuxOrders.API.Models;
 using DeuxOrders.API.Services;
 using DeuxOrders.Application.Mapping;
-using DeuxOrders.Domain.Entities;
+using DeuxOrders.Domain.Sales;
 using DeuxOrders.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

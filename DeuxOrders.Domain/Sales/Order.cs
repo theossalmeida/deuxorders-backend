@@ -1,6 +1,4 @@
-﻿using DeuxOrders.Domain.Enums;
-
-namespace DeuxOrders.Domain.Entities
+﻿namespace DeuxOrders.Domain.Sales
 {
     public class Order
     {

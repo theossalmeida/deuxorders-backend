@@ -1,4 +1,4 @@
-﻿using DeuxOrders.Domain.Entities;
+﻿using DeuxOrders.Domain.Sales;
 using DeuxOrders.Application.DTOs;
 
 namespace DeuxOrders.Application.Mapping

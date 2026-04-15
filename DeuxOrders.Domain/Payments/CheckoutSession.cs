@@ -1,7 +1,5 @@
-namespace DeuxOrders.Domain.Entities
+namespace DeuxOrders.Domain.Payments
 {
-    // Stores a pending ecommerce checkout between the billing creation
-    // and the webhook confirmation. Consumed exactly once on billing.paid.
     public class CheckoutSession
     {
         public Guid Id { get; private set; }
