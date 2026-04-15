@@ -1,6 +1,8 @@
-﻿namespace DeuxOrders.Domain.Sales
+﻿using DeuxOrders.Domain.Common;
+
+namespace DeuxOrders.Domain.Sales
 {
-    public class Order
+    public class Order : Entity
     {
         public Guid Id { get; private set; }
         public DateTime CreatedAt { get; private set; }
