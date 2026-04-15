@@ -64,13 +64,18 @@ builder.Services.AddAuthentication(x => {
 
 builder.Services.AddAuthorization();
 
-// Service config
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
+builder.Services.AddScoped<CashFlowAuditInterceptor>();
+
 builder.Services.AddOpenApi();
 
-// DB config
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString));
+builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
+{
+    options.UseNpgsql(connectionString);
+    options.AddInterceptors(sp.GetRequiredService<CashFlowAuditInterceptor>());
+});
 
 // CORS Policy
 builder.Services.AddCors(options =>
