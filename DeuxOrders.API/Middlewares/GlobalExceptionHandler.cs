@@ -6,11 +6,19 @@ namespace DeuxOrders.API.Middlewares
 {
     public class GlobalExceptionHandler : IExceptionHandler
     {
+        private readonly ILogger<GlobalExceptionHandler> _logger;
+
+        public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+        {
+            _logger = logger;
+        }
+
         public async ValueTask<bool> TryHandleAsync(
             HttpContext httpContext,
             Exception exception,
             CancellationToken cancellationToken)
         {
+            _logger.LogError(exception, "Unhandled exception: {ExceptionType} — {Message}", exception.GetType().Name, exception.Message);
             if (exception is InvalidOperationException or ArgumentException)
             {
                 httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;

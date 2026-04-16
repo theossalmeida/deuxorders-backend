@@ -27,6 +27,7 @@ namespace DeuxOrders.Infrastructure.Services
                 Subject = new ClaimsIdentity(new[]
                 {
                     new Claim("email", user.Email),
+                    new Claim("username", user.Username),
                     new Claim("role", user.Role.ToString()),
                     new Claim("id", user.Id.ToString())
                 }),

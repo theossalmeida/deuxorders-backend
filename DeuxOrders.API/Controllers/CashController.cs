@@ -38,7 +38,9 @@ namespace DeuxOrders.API.Controllers
 
             if (size > 100) size = 100;
 
-            var filter = new CashFlowFilter(from, to, type, category, source, includeDeleted);
+            var utcFrom = from.HasValue ? DateTime.SpecifyKind(from.Value, DateTimeKind.Utc) : (DateTime?)null;
+            var utcTo = to.HasValue ? DateTime.SpecifyKind(to.Value, DateTimeKind.Utc) : (DateTime?)null;
+            var filter = new CashFlowFilter(utcFrom, utcTo, type, category, source, includeDeleted);
             var result = await _service.ListAsync(filter, page, size);
 
             return Ok(new
@@ -67,7 +69,7 @@ namespace DeuxOrders.API.Controllers
         public async Task<IActionResult> Create([FromBody] CreateCashEntryRequest request)
         {
             var userId = Guid.Parse(User.FindFirst("id")!.Value);
-            var userName = User.FindFirst("email")!.Value;
+            var userName = User.FindFirst("username")!.Value;
 
             var entry = await _service.CreateAsync(request, userId, userName);
             return CreatedAtAction(nameof(GetEntry), new { id = entry.Id }, ToResponse(entry));
@@ -78,7 +80,7 @@ namespace DeuxOrders.API.Controllers
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCashEntryRequest request)
         {
             var userId = Guid.Parse(User.FindFirst("id")!.Value);
-            var userName = User.FindFirst("email")!.Value;
+            var userName = User.FindFirst("username")!.Value;
 
             var entry = await _service.UpdateAsync(id, request, userId, userName);
             return Ok(ToResponse(entry));
@@ -89,7 +91,7 @@ namespace DeuxOrders.API.Controllers
         public async Task<IActionResult> Delete(Guid id, [FromBody] DeleteCashEntryRequest request)
         {
             var userId = Guid.Parse(User.FindFirst("id")!.Value);
-            var userName = User.FindFirst("email")!.Value;
+            var userName = User.FindFirst("username")!.Value;
 
             await _service.DeleteAsync(id, request.Reason, userId, userName);
             return NoContent();
@@ -103,7 +105,9 @@ namespace DeuxOrders.API.Controllers
             [FromQuery] CashFlowCategory? category,
             [FromQuery] CashFlowSource? source)
         {
-            var filter = new CashFlowFilter(from, to, type, category, source);
+            var utcFrom = from.HasValue ? DateTime.SpecifyKind(from.Value, DateTimeKind.Utc) : (DateTime?)null;
+            var utcTo = to.HasValue ? DateTime.SpecifyKind(to.Value, DateTimeKind.Utc) : (DateTime?)null;
+            var filter = new CashFlowFilter(utcFrom, utcTo, type, category, source);
             var summary = await _service.GetSummaryAsync(filter);
             return Ok(summary);
         }

@@ -1,7 +1,6 @@
 ﻿using DeuxOrders.API.DTOs;
 using DeuxOrders.Domain.Identity;
 using DeuxOrders.Domain.Interfaces;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -24,10 +23,15 @@ public class AuthController : ControllerBase
         _logger = logger;
     }
 
-    [Authorize]
+    private static readonly bool _isDevMode =
+        (Environment.GetEnvironmentVariable("RUN_MODE") ?? "PROD") == "DEV";
+
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
+        if (!_isDevMode && !(User.Identity?.IsAuthenticated ?? false))
+            return Unauthorized("Token de autenticação necessário.");
+
         var existingUser = await _userRepository.GetByEmail(request.Email) ?? await _userRepository.GetByUsername(request.Username);
         if (existingUser != null)
             return Conflict("Usuário com este e-mail ou username já existe.");

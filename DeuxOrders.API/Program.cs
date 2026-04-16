@@ -1,10 +1,8 @@
 using DeuxOrders.API.Services;
-using DeuxOrders.Infrastructure.Cash.Handlers;
 using DeuxOrders.Application.Common;
 using DeuxOrders.Domain.Interfaces;
 using DeuxOrders.Domain.Sales.Events;
-using DeuxOrders.Infrastructure.Services;
-using QuestPDF.Infrastructure;
+using DeuxOrders.Infrastructure.Cash.Handlers;
 using DeuxOrders.Infrastructure.Data;
 using DeuxOrders.Infrastructure.Repositories;
 using DeuxOrders.Infrastructure.Services;
@@ -12,9 +10,9 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using QuestPDF.Infrastructure;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -23,11 +21,10 @@ QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Cap multipart form-data body size at 10 MB (product images)
-builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
-{
-    options.MultipartBodyLengthLimit = 10 * 1024 * 1024;
-});
+builder.Configuration.AddEnvironmentVariables();
+
+var runMode = Environment.GetEnvironmentVariable("RUN_MODE") ?? "PROD";
+var isDevMode = runMode == "DEV";
 
 var secret = builder.Configuration.GetValue<string>("JwtSettings:Secret")
              ?? throw new Exception("JWT Secret não encontrada!");
@@ -167,7 +164,7 @@ app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 
-if (app.Environment.IsDevelopment())
+if (isDevMode)
 {
     app.MapOpenApi();
 }

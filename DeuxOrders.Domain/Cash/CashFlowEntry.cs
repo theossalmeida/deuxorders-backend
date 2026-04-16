@@ -36,7 +36,7 @@ public class CashFlowEntry : Entity
         {
             Id = Guid.CreateVersion7(),
             CreatedAt = DateTime.UtcNow,
-            BillingDate = billingDate,
+            BillingDate = DateTime.SpecifyKind(billingDate.Date.AddHours(12), DateTimeKind.Utc),
             Type = type,
             Category = category,
             Counterparty = counterparty.Trim(),
@@ -92,7 +92,7 @@ public class CashFlowEntry : Entity
             throw new InvalidOperationException("Entradas excluídas não podem ser editadas.");
         Validate(amountCents, counterparty);
 
-        BillingDate = billingDate;
+        BillingDate = DateTime.SpecifyKind(billingDate.Date.AddHours(12), DateTimeKind.Utc);
         Type = type;
         Category = category;
         Counterparty = counterparty.Trim();
