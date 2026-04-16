@@ -131,6 +131,23 @@ namespace DeuxOrders.Tests.Sales
         }
 
         [Fact]
+        public async Task MarkAsPaid_ZeroValueOrder_ReturnsBadRequest()
+        {
+            await AuthenticateAsAdminAsync();
+            var (clientId, productId) = await CreateClientAndProductAsync();
+
+            var req = new CreateOrderRequest(clientId, DateTime.UtcNow.AddDays(1),
+                new List<CreateOrderItemRequest> { new(productId, 1, 0, null, null, null) }, null);
+            var orderRes = await _client.PostAsJsonAsync("/api/v1/orders/new", req);
+            orderRes.EnsureSuccessStatusCode();
+            var order = (await orderRes.Content.ReadFromJsonAsync<OrderResponse>(JsonOptions))!;
+
+            var res = await _client.PatchAsync($"/api/v1/orders/{order.Id}/pay", null);
+
+            Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        }
+
+        [Fact]
         public async Task MarkAsPaid_NonAdminUser_ReturnsForbidden()
         {
             await AuthenticateAsync();

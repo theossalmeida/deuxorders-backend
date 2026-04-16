@@ -190,13 +190,13 @@ namespace DeuxOrders.Domain.Sales
 
         public void MarkAsPaid(Guid userId, string userName, DateTime paidAt)
         {
+            if (PaidAt.HasValue) return;
             if (Status == OrderStatus.Canceled)
                 throw new InvalidOperationException("Não é possível marcar como pago um pedido cancelado.");
             if (TotalPaid <= 0)
                 throw new InvalidOperationException("Não é possível marcar como pago um pedido sem valor.");
             if (string.IsNullOrWhiteSpace(userName))
                 throw new ArgumentException("O nome do autor é obrigatório.", nameof(userName));
-            if (PaidAt.HasValue) return;
 
             PaidAt = paidAt;
             PaidByUserId = userId;

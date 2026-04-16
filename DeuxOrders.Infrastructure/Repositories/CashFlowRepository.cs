@@ -37,43 +37,36 @@ public class CashFlowRepository : ICashFlowRepository
 
     public async Task<CashFlowSummary> GetSummaryAsync(CashFlowFilter filter)
     {
-        var query = BuildQuery(filter);
-
-        var inflow = await query
-            .Where(e => e.Type == CashFlowType.Inflow)
-            .GroupBy(_ => 1)
-            .Select(g => new { Total = g.Sum(e => e.AmountCents), Count = g.Count() })
-            .FirstOrDefaultAsync();
-
-        var outflow = await query
-            .Where(e => e.Type == CashFlowType.Outflow)
-            .GroupBy(_ => 1)
-            .Select(g => new { Total = g.Sum(e => e.AmountCents), Count = g.Count() })
-            .FirstOrDefaultAsync();
-
-        var inflowByCategory = await query
-            .Where(e => e.Type == CashFlowType.Inflow)
-            .GroupBy(e => e.Category)
-            .Select(g => new { Category = g.Key.ToString(), Total = g.Sum(e => e.AmountCents) })
+        var rows = await BuildQuery(filter)
+            .GroupBy(e => new { e.Type, e.Category })
+            .Select(g => new
+            {
+                g.Key.Type,
+                g.Key.Category,
+                Total = g.Sum(e => e.AmountCents),
+                Count = g.Count()
+            })
             .ToListAsync();
 
-        var outflowByCategory = await query
-            .Where(e => e.Type == CashFlowType.Outflow)
-            .GroupBy(e => e.Category)
-            .Select(g => new { Category = g.Key.ToString(), Total = g.Sum(e => e.AmountCents) })
-            .ToListAsync();
+        var totalInflow = rows.Where(r => r.Type == CashFlowType.Inflow).Sum(r => r.Total);
+        var totalOutflow = rows.Where(r => r.Type == CashFlowType.Outflow).Sum(r => r.Total);
+        var totalCount = rows.Sum(r => r.Count);
 
-        var totalInflow = inflow?.Total ?? 0;
-        var totalOutflow = outflow?.Total ?? 0;
-        var totalCount = (inflow?.Count ?? 0) + (outflow?.Count ?? 0);
+        var inflowByCategory = rows
+            .Where(r => r.Type == CashFlowType.Inflow)
+            .ToDictionary(r => r.Category.ToString(), r => r.Total);
+
+        var outflowByCategory = rows
+            .Where(r => r.Type == CashFlowType.Outflow)
+            .ToDictionary(r => r.Category.ToString(), r => r.Total);
 
         return new CashFlowSummary(
             totalInflow,
             totalOutflow,
             totalInflow - totalOutflow,
             totalCount,
-            inflowByCategory.ToDictionary(x => x.Category, x => x.Total),
-            outflowByCategory.ToDictionary(x => x.Category, x => x.Total));
+            inflowByCategory,
+            outflowByCategory);
     }
 
     public async Task<IEnumerable<CashFlowEntry>> ListForExportAsync(CashFlowFilter filter)

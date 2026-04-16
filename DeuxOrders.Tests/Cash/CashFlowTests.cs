@@ -55,7 +55,7 @@ namespace DeuxOrders.Tests.Cash
 
             await _client.PatchAsync($"/api/v1/orders/{order.Id}/pay", null);
 
-            var res = await _client.GetAsync($"/api/v1/cash/entries?sourceId={order.Id}");
+            var res = await _client.GetAsync("/api/v1/cash/entries");
             Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             var paged = await res.Content.ReadFromJsonAsync<PagedCashResponse>(JsonOptions);
 

@@ -33,7 +33,13 @@ public sealed class CashFlowAuditInterceptor : SaveChangesInterceptor
 
         foreach (var entry in entries)
         {
-            var action = entry.State == EntityState.Added ? AuditAction.Created : AuditAction.Updated;
+            var action = entry.State == EntityState.Added
+                ? AuditAction.Created
+                : entry.Property(nameof(CashFlowEntry.DeletedAt)).IsModified
+                  && entry.Property(nameof(CashFlowEntry.DeletedAt)).OriginalValue is null
+                  && entry.Entity.DeletedAt.HasValue
+                    ? AuditAction.Deleted
+                    : AuditAction.Updated;
             var snapshot = Serialize(entry.Entity);
             var previous = entry.State == EntityState.Modified ? SerializePrevious(entry) : null;
 
@@ -69,6 +75,8 @@ public sealed class CashFlowAuditInterceptor : SaveChangesInterceptor
             Counterparty = GetOriginal<string>(entry, nameof(CashFlowEntry.Counterparty)),
             AmountCents = GetOriginal<long>(entry, nameof(CashFlowEntry.AmountCents)),
             Notes = GetOriginal<string?>(entry, nameof(CashFlowEntry.Notes)),
+            Source = GetOriginal<int>(entry, nameof(CashFlowEntry.Source)),
+            SourceId = GetOriginal<Guid?>(entry, nameof(CashFlowEntry.SourceId)),
             DeletedAt = GetOriginal<DateTime?>(entry, nameof(CashFlowEntry.DeletedAt)),
             DeletionReason = GetOriginal<string?>(entry, nameof(CashFlowEntry.DeletionReason))
         });

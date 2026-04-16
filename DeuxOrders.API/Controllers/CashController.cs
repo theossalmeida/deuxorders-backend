@@ -33,6 +33,9 @@ namespace DeuxOrders.API.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int size = 20)
         {
+            if (includeDeleted && !User.IsInRole("Administrator"))
+                return Forbid();
+
             if (size > 100) size = 100;
 
             var filter = new CashFlowFilter(from, to, type, category, source, includeDeleted);
@@ -50,6 +53,9 @@ namespace DeuxOrders.API.Controllers
         [HttpGet("entries/{id}")]
         public async Task<IActionResult> GetEntry(Guid id, [FromQuery] bool includeDeleted = false)
         {
+            if (includeDeleted && !User.IsInRole("Administrator"))
+                return Forbid();
+
             var entry = await _service.GetByIdAsync(id, includeDeleted);
             if (entry == null) return NotFound();
 
