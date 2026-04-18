@@ -8,7 +8,8 @@ public record CreateCashEntryRequest(
     CashFlowCategory Category,
     string Counterparty,
     long AmountCents,
-    string? Notes);
+    string? Notes,
+    Guid? SourceId = null);
 
 public record UpdateCashEntryRequest(
     DateTime BillingDate,

@@ -29,7 +29,7 @@ public class CashFlowEntry : Entity
     public static CashFlowEntry CreateManual(
         DateTime billingDate, CashFlowType type, CashFlowCategory category,
         string counterparty, long amountCents, string? notes,
-        Guid authorUserId, string authorUserName)
+        Guid authorUserId, string authorUserName, Guid? sourceId = null)
     {
         Validate(amountCents, counterparty);
         return new CashFlowEntry
@@ -43,6 +43,7 @@ public class CashFlowEntry : Entity
             AmountCents = amountCents,
             Notes = notes?.Trim(),
             Source = CashFlowSource.Manual,
+            SourceId = sourceId,
             AuthorUserId = authorUserId,
             AuthorUserName = authorUserName
         };

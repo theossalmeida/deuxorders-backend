@@ -21,7 +21,7 @@ public class CashFlowService
         var entry = CashFlowEntry.CreateManual(
             req.BillingDate, req.Type, req.Category,
             req.Counterparty, req.AmountCents, req.Notes,
-            userId, userName);
+            userId, userName, req.SourceId);
 
         _repository.Add(entry);
         await _unitOfWork.CommitAsync();
