@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for deuxorders-api on 2026-03-14T18:03:59-03:00
+﻿# fly.toml app configuration file generated for DeuxERP-api on 2026-03-14T18:03:59-03:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'deuxorders-api'
+app = 'DeuxERP-api'
 primary_region = 'gru'
 
 [build]
