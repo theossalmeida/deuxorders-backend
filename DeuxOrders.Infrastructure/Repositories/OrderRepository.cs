@@ -88,6 +88,22 @@ namespace DeuxOrders.Infrastructure.Repositories
             return new PagedResult<Order>(items, totalCount, page, size);
         }
 
+        public async Task<ProductStats> GetProductStatsAsync(Guid productId, int year, int month, CancellationToken ct = default)
+        {
+            var firstDay = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var nextMonth = firstDay.AddMonths(1);
+
+            var stats = await _context.Orders
+                .AsNoTracking()
+                .Where(o => o.Status != OrderStatus.Canceled && o.CreatedAt >= firstDay && o.CreatedAt < nextMonth)
+                .SelectMany(o => o.Items.Where(i => !i.ItemCanceled && i.ProductId == productId))
+                .GroupBy(i => 1)
+                .Select(g => new { Sold = g.Sum(i => i.Quantity), Revenue = g.Sum(i => i.TotalPaid) })
+                .FirstOrDefaultAsync(ct);
+
+            return stats == null ? new ProductStats(0, 0) : new ProductStats(stats.Sold, stats.Revenue);
+        }
+
         public async Task<ClientStats> GetClientStatsAsync(Guid clientId, CancellationToken ct = default)
         {
             var stats = await _context.Orders

@@ -12,12 +12,14 @@ using Microsoft.AspNetCore.Mvc;
 public class ProductController : ControllerBase
 {
     private readonly IProductRepository _repository;
+    private readonly IOrderRepository _orderRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IStorageService _storageService;
 
-    public ProductController(IProductRepository repository, IUnitOfWork unitOfWork, IStorageService storageService)
+    public ProductController(IProductRepository repository, IOrderRepository orderRepository, IUnitOfWork unitOfWork, IStorageService storageService)
     {
         _repository = repository;
+        _orderRepository = orderRepository;
         _unitOfWork = unitOfWork;
         _storageService = storageService;
     }
@@ -152,6 +154,21 @@ public class ProductController : ControllerBase
         if (product == null) return NotFound();
         var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
         return Ok(product.ToResponse(imageUrl));
+    }
+
+    [HttpGet("{id}/stats")]
+    public async Task<IActionResult> GetStats(Guid id, [FromQuery] string month, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(month) ||
+            !DateTime.TryParseExact(month, "yyyy-MM", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var parsed))
+            return BadRequest("O parâmetro 'month' é obrigatório no formato YYYY-MM.");
+
+        var product = await _repository.GetByIdAsync(id);
+        if (product == null) return NotFound();
+
+        var stats = await _orderRepository.GetProductStatsAsync(id, parsed.Year, parsed.Month, ct);
+        return Ok(stats);
     }
 
     [HttpGet("all")]

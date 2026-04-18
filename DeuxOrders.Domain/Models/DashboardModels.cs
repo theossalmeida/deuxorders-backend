@@ -48,4 +48,9 @@ namespace DeuxOrders.Domain.Models
         long TotalSpent,
         DateTime? LastOrderDate
     );
+
+    public record ProductStats(
+        int SoldThisMonth,
+        long RevenueThisMonth
+    );
 }
