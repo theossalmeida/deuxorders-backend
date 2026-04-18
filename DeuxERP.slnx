@@ -1,0 +1,7 @@
+﻿<Solution>
+  <Project Path="DeuxERP.API/DeuxERP.API.csproj" />
+  <Project Path="DeuxERP.Application/DeuxERP.Application.csproj" />
+  <Project Path="DeuxERP.Domain/DeuxERP.Domain.csproj" />
+  <Project Path="DeuxERP.Infrastructure/DeuxERP.Infrastructure.csproj" />
+  <Project Path="DeuxERP.Tests/DeuxERP.Tests.csproj" />
+</Solution>

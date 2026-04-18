@@ -1,4 +1,4 @@
-# DeuxOrders API Reference
+﻿# DeuxERP API Reference
 
 **Base URL (production):** `https://api-orders.deuxcerie.com.br`
 **Base URL (local):** `http://localhost:5062`
