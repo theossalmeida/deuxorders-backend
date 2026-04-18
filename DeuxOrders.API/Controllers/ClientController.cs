@@ -110,6 +110,27 @@ public class ClientController : ControllerBase
         return Ok(stats);
     }
 
+    [HttpGet("{id}/orders")]
+    public async Task<IActionResult> GetOrders(Guid id, CancellationToken ct, [FromQuery] int page = 1, [FromQuery] int size = 20)
+    {
+        if (page < 1) page = 1;
+        if (size < 1) size = 1;
+        if (size > 100) size = 100;
+
+        var client = await _repository.GetByIdAsync(id);
+        if (client == null) return NotFound();
+
+        var result = await _orderRepository.GetByClientAsync(id, page, size, ct);
+
+        return Ok(new
+        {
+            items = result.Items.Select(o => o.ToResponse(o.Client?.Name ?? "", null)).ToList(),
+            totalCount = result.TotalCount,
+            pageNumber = result.PageNumber,
+            pageSize = result.PageSize
+        });
+    }
+
     [HttpGet("all")]
     public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] bool? status, [FromQuery] int page = 1, [FromQuery] int size = 20)
     {

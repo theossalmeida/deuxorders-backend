@@ -68,6 +68,26 @@ namespace DeuxOrders.Infrastructure.Repositories
             return new PagedResult<Order>(items, totalCount, pageNumber, pageSize);
         }
 
+        public async Task<PagedResult<Order>> GetByClientAsync(Guid clientId, int page, int size, CancellationToken ct = default)
+        {
+            var baseQuery = _context.Orders
+                .AsNoTracking()
+                .Where(o => o.ClientId == clientId);
+
+            var totalCount = await baseQuery.CountAsync(ct);
+
+            var items = await baseQuery
+                .Include(o => o.Client)
+                .Include(o => o.Items)
+                    .ThenInclude(i => i.Product)
+                .OrderByDescending(o => o.CreatedAt)
+                .Skip((page - 1) * size)
+                .Take(size)
+                .ToListAsync(ct);
+
+            return new PagedResult<Order>(items, totalCount, page, size);
+        }
+
         public async Task<ClientStats> GetClientStatsAsync(Guid clientId, CancellationToken ct = default)
         {
             var stats = await _context.Orders
