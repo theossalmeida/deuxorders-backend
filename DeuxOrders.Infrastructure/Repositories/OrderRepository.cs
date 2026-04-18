@@ -88,6 +88,20 @@ namespace DeuxOrders.Infrastructure.Repositories
             return new PagedResult<Order>(items, totalCount, page, size);
         }
 
+        public async Task<Dictionary<Guid, (int TotalOrders, long TotalSpent)>> GetTotalsForClientsAsync(IEnumerable<Guid> clientIds, CancellationToken ct = default)
+        {
+            var ids = clientIds.ToList();
+
+            var rows = await _context.Orders
+                .AsNoTracking()
+                .Where(o => ids.Contains(o.ClientId) && o.Status != OrderStatus.Canceled)
+                .GroupBy(o => o.ClientId)
+                .Select(g => new { ClientId = g.Key, TotalOrders = g.Count(), TotalSpent = g.Sum(o => o.TotalPaid) })
+                .ToListAsync(ct);
+
+            return rows.ToDictionary(r => r.ClientId, r => (r.TotalOrders, r.TotalSpent));
+        }
+
         public async Task<ProductStats> GetProductStatsAsync(Guid productId, int year, int month, CancellationToken ct = default)
         {
             var firstDay = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);

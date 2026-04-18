@@ -42,6 +42,8 @@ namespace DeuxOrders.Tests.DTOs
         Guid Id,
         string Name,
         string? Mobile,
-        bool Status
+        bool Status,
+        int? TotalOrders,
+        long? TotalSpent
     );
 }

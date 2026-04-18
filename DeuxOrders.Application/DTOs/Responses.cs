@@ -46,4 +46,13 @@ namespace DeuxOrders.Application.DTOs
         string Name,
         string? Mobile
     );
+
+    public record ClientListResponse(
+        Guid Id,
+        string Name,
+        string? Mobile,
+        bool Status,
+        int? TotalOrders,
+        long? TotalSpent
+    );
 }

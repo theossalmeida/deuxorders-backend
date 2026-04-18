@@ -132,13 +132,28 @@ public class ClientController : ControllerBase
     }
 
     [HttpGet("all")]
-    public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] bool? status, [FromQuery] int page = 1, [FromQuery] int size = 20)
+    public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] bool? status, [FromQuery] int page = 1, [FromQuery] int size = 20, [FromQuery] bool includeTotals = false)
     {
         if (size > 100) size = 100;
         var result = await _repository.GetAll(search, status, page, size);
+
+        Dictionary<Guid, (int TotalOrders, long TotalSpent)> totals = [];
+        var clientList = result.Items.ToList();
+        if (includeTotals && clientList.Count > 0)
+            totals = await _orderRepository.GetTotalsForClientsAsync(clientList.Select(c => c.Id));
+
+        var items = clientList;
+
         return Ok(new
         {
-            items = result.Items.Select(c => c.ToResponse()),
+            items = items.Select(c =>
+            {
+                totals.TryGetValue(c.Id, out var t);
+                return c.ToListResponse(
+                    includeTotals ? t.TotalOrders : null,
+                    includeTotals ? t.TotalSpent : null
+                );
+            }),
             totalCount = result.TotalCount,
             pageNumber = result.PageNumber,
             pageSize = result.PageSize

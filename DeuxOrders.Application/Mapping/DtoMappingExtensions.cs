@@ -48,6 +48,18 @@ namespace DeuxOrders.Application.Mapping
                 client.Mobile
             );
         }
+
+        public static ClientListResponse ToListResponse(this Client client, int? totalOrders = null, long? totalSpent = null)
+        {
+            return new ClientListResponse(
+                client.Id,
+                client.Name,
+                client.Mobile,
+                client.Status,
+                totalOrders,
+                totalSpent
+            );
+        }
         public static ProductResponse ToResponse(this Product product, string? imageUrl = null)
         {
             return new ProductResponse(
