@@ -42,4 +42,10 @@ namespace DeuxOrders.Domain.Models
         long TotalRevenue,
         int OrderCount
     );
+
+    public record ClientStats(
+        int TotalOrders,
+        long TotalSpent,
+        DateTime? LastOrderDate
+    );
 }

@@ -12,5 +12,6 @@ namespace DeuxOrders.Domain.Interfaces
         Task<bool> DeleteAsync(Guid id);
         Task<PagedResult<Order>> GetAllAsync(int pageNumber, int pageSize, OrderStatus? status = null);
         Task<IEnumerable<OrderExportRow>> GetForExportAsync(ExportFilter filter);
+        Task<ClientStats> GetClientStatsAsync(Guid clientId, CancellationToken ct = default);
     }
 }

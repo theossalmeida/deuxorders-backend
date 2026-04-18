@@ -1,7 +1,6 @@
 ﻿using DeuxOrders.Application.Mapping;
 using DeuxOrders.Domain.Sales;
 using DeuxOrders.Domain.Interfaces;
-using DeuxOrders.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,11 +10,13 @@ using Microsoft.AspNetCore.Mvc;
 public class ClientController : ControllerBase
 {
     private readonly IClientRepository _repository;
+    private readonly IOrderRepository _orderRepository;
     private readonly IUnitOfWork _unitOfWork;
 
-    public ClientController(IClientRepository repository, IUnitOfWork unitOfWork)
+    public ClientController(IClientRepository repository, IOrderRepository orderRepository, IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _orderRepository = orderRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -97,6 +98,16 @@ public class ClientController : ControllerBase
         var client = await _repository.GetByIdAsync(id);
         if (client == null) return NotFound();
         return Ok(client);
+    }
+
+    [HttpGet("{id}/stats")]
+    public async Task<IActionResult> GetStats(Guid id, CancellationToken ct)
+    {
+        var client = await _repository.GetByIdAsync(id);
+        if (client == null) return NotFound();
+
+        var stats = await _orderRepository.GetClientStatsAsync(id, ct);
+        return Ok(stats);
     }
 
     [HttpGet("all")]

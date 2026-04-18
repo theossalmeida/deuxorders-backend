@@ -24,4 +24,24 @@ namespace DeuxOrders.Tests.DTOs
         long NetBalanceCents,
         int TotalCount
     );
+
+    public record ClientStatsResponse(
+        int TotalOrders,
+        long TotalSpent,
+        DateTime? LastOrderDate
+    );
+
+    public record PagedClientResponse(
+        List<ClientListItem> Items,
+        int TotalCount,
+        int PageNumber,
+        int PageSize
+    );
+
+    public record ClientListItem(
+        Guid Id,
+        string Name,
+        string? Mobile,
+        bool Status
+    );
 }

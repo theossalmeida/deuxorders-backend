@@ -68,6 +68,21 @@ namespace DeuxOrders.Infrastructure.Repositories
             return new PagedResult<Order>(items, totalCount, pageNumber, pageSize);
         }
 
+        public async Task<ClientStats> GetClientStatsAsync(Guid clientId, CancellationToken ct = default)
+        {
+            var stats = await _context.Orders
+                .AsNoTracking()
+                .Where(o => o.ClientId == clientId && o.Status != OrderStatus.Canceled)
+                .GroupBy(o => 1)
+                .Select(g => new ClientStats(
+                    g.Count(),
+                    g.Sum(o => o.TotalPaid),
+                    (DateTime?)g.Max(o => o.CreatedAt)))
+                .FirstOrDefaultAsync(ct);
+
+            return stats ?? new ClientStats(0, 0, null);
+        }
+
         public async Task<IEnumerable<OrderExportRow>> GetForExportAsync(ExportFilter filter)
         {
             var query = _context.Orders.AsNoTracking();
