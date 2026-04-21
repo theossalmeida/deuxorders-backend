@@ -36,7 +36,7 @@ public class AuthController : ControllerBase
         if (existingUser != null)
             return Conflict("Usuário com este e-mail ou username já existe.");
 
-        var hash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(request.Password));
+        var hash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
         var user = new User(request.Name, request.Username, hash, request.Email, UserRole.Administrator);
 
@@ -72,7 +72,7 @@ public class AuthController : ControllerBase
             return Unauthorized("Credenciais inválidas.");
         }
 
-        var isValid = await Task.Run(() => BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash));
+        var isValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
         if (!isValid)
         {
             _logger.LogWarning("Failed login: wrong password for {Email} from {IP}", request.Email, ip);

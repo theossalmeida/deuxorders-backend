@@ -15,45 +15,63 @@ public class ProductController : ControllerBase
     private readonly IOrderRepository _orderRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IStorageService _storageService;
+    private readonly ILogger<ProductController> _logger;
 
-    public ProductController(IProductRepository repository, IOrderRepository orderRepository, IUnitOfWork unitOfWork, IStorageService storageService)
+    public ProductController(IProductRepository repository, IOrderRepository orderRepository, IUnitOfWork unitOfWork, IStorageService storageService, ILogger<ProductController> logger)
     {
         _repository = repository;
         _orderRepository = orderRepository;
         _unitOfWork = unitOfWork;
         _storageService = storageService;
+        _logger = logger;
     }
 
     [HttpPost("new")]
-    public async Task<IActionResult> Create([FromForm] CreateProductRequest request)
-    {
-        var product = new Product(request.Name, request.Price, request.Category, request.Size);
-
-        if (!string.IsNullOrWhiteSpace(request.Description))
-            product.SetDescription(request.Description);
-
-        if (request.Image != null)
+        public async Task<IActionResult> Create([FromForm] CreateProductRequest request)
         {
-            if (!FileValidation.IsAllowedImage(request.Image))
-                return BadRequest("Tipo de imagem não permitido. Use JPG, PNG ou WebP.");
+            var product = new Product(request.Name, request.Price, request.Category, request.Size);
+            string? uploadedObjectKey = null;
+
+            if (!string.IsNullOrWhiteSpace(request.Description))
+                product.SetDescription(request.Description);
+
+            if (request.Image != null)
+            {
+                if (!FileValidation.IsAllowedImage(request.Image))
+                    return BadRequest("Tipo de imagem não permitido. Use JPG, PNG ou WebP.");
 
             if (request.Image.Length > 5 * 1024 * 1024)
                 return BadRequest("A imagem não pode ser maior que 5 MB.");
 
-            var extension = Path.GetExtension(request.Image.FileName);
-            var objectKey = $"products-images/{Guid.NewGuid()}{extension}";
-            using var stream = request.Image.OpenReadStream();
-            await _storageService.UploadFileAsync(stream, objectKey, request.Image.ContentType);
-            product.SetImage(objectKey);
-        }
+                var extension = Path.GetExtension(request.Image.FileName);
+                uploadedObjectKey = $"products-images/{Guid.NewGuid()}{extension}";
+                using var stream = request.Image.OpenReadStream();
+                await _storageService.UploadFileAsync(stream, uploadedObjectKey, request.Image.ContentType);
+                product.SetImage(uploadedObjectKey);
+            }
 
-        _repository.Add(product);
+            _repository.Add(product);
 
-        if (!await _unitOfWork.CommitAsync())
-            return BadRequest("Falha ao salvar o produto no banco de dados.");
+            if (!await _unitOfWork.CommitAsync())
+            {
+                if (uploadedObjectKey != null)
+                {
+                    try
+                    {
+                        await _storageService.DeleteObjectAsync(uploadedObjectKey);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogCritical(ex, "Failed to cleanup uploaded product image {ObjectKey} after create commit failure.", uploadedObjectKey);
+                        return StatusCode(StatusCodes.Status502BadGateway, "Falha ao limpar a imagem enviada após erro ao salvar o produto.");
+                    }
+                }
 
-        var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
-        return CreatedAtRoute("GetProductById", new { id = product.Id }, product.ToResponse(imageUrl));
+                return BadRequest("Falha ao salvar o produto no banco de dados.");
+            }
+
+            var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
+            return CreatedAtRoute("GetProductById", new { id = product.Id }, product.ToResponse(imageUrl));
     }
 
     [HttpPut("{id}")]
@@ -64,28 +82,70 @@ public class ProductController : ControllerBase
 
         string? newObjectKey = null;
 
-        if (request.Image != null)
-        {
-            if (!FileValidation.IsAllowedImage(request.Image))
-                return BadRequest("Tipo de imagem não permitido. Use JPG, PNG ou WebP.");
+            if (request.Image != null)
+            {
+                if (!FileValidation.IsAllowedImage(request.Image))
+                    return BadRequest("Tipo de imagem não permitido. Use JPG, PNG ou WebP.");
 
             if (request.Image.Length > 5 * 1024 * 1024)
                 return BadRequest("A imagem não pode ser maior que 5 MB.");
 
-            var extension = Path.GetExtension(request.Image.FileName);
-            newObjectKey = $"products-images/{Guid.NewGuid()}{extension}";
-            using var stream = request.Image.OpenReadStream();
-            await _storageService.UploadFileAsync(stream, newObjectKey, request.Image.ContentType);
+                var extension = Path.GetExtension(request.Image.FileName);
+                newObjectKey = $"products-images/{Guid.NewGuid()}{extension}";
+                using var stream = request.Image.OpenReadStream();
+                await _storageService.UploadFileAsync(stream, newObjectKey, request.Image.ContentType);
         }
 
         var oldObjectKey = product.Image;
         product.Update(request.Name, request.Price, request.Description, newObjectKey ?? product.Image, request.Category, request.Size);
 
-        if (!await _unitOfWork.CommitAsync())
-            return BadRequest("Falha ao atualizar o produto no banco de dados.");
+            if (!await _unitOfWork.CommitAsync())
+            {
+                if (newObjectKey != null)
+                {
+                    try
+                    {
+                        await _storageService.DeleteObjectAsync(newObjectKey);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogCritical(ex, "Failed to cleanup uploaded replacement image {ObjectKey} after update commit failure.", newObjectKey);
+                        return StatusCode(StatusCodes.Status502BadGateway, "Falha ao limpar a nova imagem após erro ao atualizar o produto.");
+                    }
+                }
+
+                return BadRequest("Falha ao atualizar o produto no banco de dados.");
+            }
 
         if (newObjectKey != null && oldObjectKey != null)
-            await _storageService.DeleteObjectAsync(oldObjectKey);
+        {
+            try
+            {
+                await _storageService.DeleteObjectAsync(oldObjectKey);
+            }
+            catch
+            {
+                product.Update(request.Name, request.Price, request.Description, oldObjectKey, request.Category, request.Size);
+                if (!await _unitOfWork.CommitAsync())
+                {
+                    _logger.LogCritical(
+                        "Failed to restore product {ProductId} image reference after storage cleanup failure.",
+                        id);
+                    return StatusCode(StatusCodes.Status500InternalServerError, "Falha ao restaurar a imagem do produto após erro no armazenamento.");
+                }
+
+                try
+                {
+                    await _storageService.DeleteObjectAsync(newObjectKey);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogCritical(ex, "Failed to cleanup replacement image {ObjectKey} after restoring product {ProductId} image reference.", newObjectKey, id);
+                    return StatusCode(StatusCodes.Status502BadGateway, "Falha ao substituir a imagem do produto e a limpeza da nova imagem também falhou.");
+                }
+                return StatusCode(StatusCodes.Status502BadGateway, "Falha ao substituir a imagem do produto. Tente novamente.");
+            }
+        }
 
         var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
         return Ok(product.ToResponse(imageUrl));
@@ -104,7 +164,22 @@ public class ProductController : ControllerBase
         if (!await _unitOfWork.CommitAsync())
             return BadRequest("Falha ao remover a imagem do banco de dados.");
 
-        await _storageService.DeleteObjectAsync(objectKey);
+        try
+        {
+            await _storageService.DeleteObjectAsync(objectKey);
+        }
+        catch
+        {
+            product.SetImage(objectKey);
+            if (!await _unitOfWork.CommitAsync())
+            {
+                _logger.LogCritical(
+                    "Failed to restore product {ProductId} image reference after storage delete failure.",
+                    id);
+                return StatusCode(StatusCodes.Status500InternalServerError, "Falha ao restaurar a imagem do produto após erro no armazenamento.");
+            }
+            return StatusCode(StatusCodes.Status502BadGateway, "Falha ao remover a imagem do armazenamento. A imagem foi restaurada no banco.");
+        }
 
         return Ok(product.ToResponse());
     }
@@ -202,7 +277,16 @@ public class ProductController : ControllerBase
             if (!success) return NotFound(new { Message = "Produto não encontrado." });
 
             if (objectKey != null)
-                await _storageService.DeleteObjectAsync(objectKey);
+            {
+                try
+                {
+                    await _storageService.DeleteObjectAsync(objectKey);
+                }
+                catch
+                {
+                    return StatusCode(StatusCodes.Status502BadGateway, new { Message = "Produto removido do banco, mas a imagem não pôde ser removida do armazenamento." });
+                }
+            }
 
             return NoContent();
         }

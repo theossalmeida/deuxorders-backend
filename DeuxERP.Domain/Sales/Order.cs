@@ -38,9 +38,9 @@ namespace DeuxERP.Domain.Sales
 
         public void MarkAsCompleted()
         {
-            if (Status == OrderStatus.Canceled)
-                throw new InvalidOperationException("Não é possível concluir um pedido que foi cancelado.");
-            if (Status == OrderStatus.Completed) return;
+            //if (Status == OrderStatus.Canceled)
+            //    throw new InvalidOperationException("Não é possível concluir um pedido que foi cancelado.");
+            //if (Status == OrderStatus.Completed) return;
 
             UpdatedAt = DateTime.UtcNow;
             Status = OrderStatus.Completed;
@@ -66,12 +66,6 @@ namespace DeuxERP.Domain.Sales
         public void UpdateStatus(OrderStatus status)
         {
             if (Status == status) return;
-
-            if (Status == OrderStatus.Completed)
-                throw new InvalidOperationException("Não é possível alterar o status de um pedido já concluído.");
-
-            if (Status == OrderStatus.Canceled)
-                throw new InvalidOperationException("Não é possível alterar o status de um pedido cancelado.");
 
             Status = status;
             UpdatedAt = DateTime.UtcNow;

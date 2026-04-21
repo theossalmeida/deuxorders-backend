@@ -1,9 +1,9 @@
-﻿# fly.toml app configuration file generated for DeuxERP-api on 2026-03-14T18:03:59-03:00
+# fly.toml app configuration file generated for deuxerp-api on 2026-04-18T11:29:04-03:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'DeuxERP-api'
+app = 'deuxerp-api'
 primary_region = 'gru'
 
 [build]
@@ -11,7 +11,6 @@ primary_region = 'gru'
 
 [http_service]
   internal_port = 8080
-  force_https = false
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 1

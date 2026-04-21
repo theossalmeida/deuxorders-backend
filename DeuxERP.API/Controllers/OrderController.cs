@@ -15,24 +15,27 @@ namespace DeuxERP.API.Controllers
 {
     [Authorize]
     [ApiController]
-    [Route("api/v1/orders")]
-    public class OrderController : ControllerBase
-    {
-        private readonly IOrderRepository _repository;
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly OrderService _orderService;
-        private readonly IStorageService _storageService;
+[Route("api/v1/orders")]
+public class OrderController : ControllerBase
+{
+    private readonly IOrderRepository _repository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly OrderService _orderService;
+    private readonly IStorageService _storageService;
+    private readonly ILogger<OrderController> _logger;
 
-        public OrderController(
-            IOrderRepository repository,
-            IUnitOfWork unitOfWork,
-            OrderService orderService,
-            IStorageService storageService)
-        {
-            _repository = repository;
-            _unitOfWork = unitOfWork;
-            _orderService = orderService;
-            _storageService = storageService;
+    public OrderController(
+        IOrderRepository repository,
+        IUnitOfWork unitOfWork,
+        OrderService orderService,
+        IStorageService storageService,
+        ILogger<OrderController> logger)
+    {
+        _repository = repository;
+        _unitOfWork = unitOfWork;
+        _orderService = orderService;
+        _storageService = storageService;
+        _logger = logger;
         }
 
         [HttpDelete("{id}/references")]
@@ -45,7 +48,24 @@ namespace DeuxERP.API.Controllers
 
             if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
-            await _storageService.DeleteObjectAsync(request.ObjectKey);
+            try
+            {
+                await _storageService.DeleteObjectAsync(request.ObjectKey);
+            }
+            catch
+            {
+                order.AppendReferences(new List<string> { request.ObjectKey });
+                if (!await _unitOfWork.CommitAsync())
+                {
+                    _logger.LogCritical(
+                        "Failed to restore order reference {ObjectKey} after storage delete failure for order {OrderId}.",
+                        request.ObjectKey,
+                        id);
+                    return StatusCode(StatusCodes.Status500InternalServerError, "Falha ao restaurar a referência do pedido após erro no armazenamento.");
+                }
+
+                return StatusCode(StatusCodes.Status502BadGateway, "Falha ao remover a referência do armazenamento. A referência foi restaurada no pedido.");
+            }
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             return Ok(order.ToResponse(order.Client?.Name ?? "", signedUrls));

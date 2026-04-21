@@ -77,13 +77,14 @@ namespace DeuxERP.Application.Services
                 var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
                 var dbProducts = await _productRepository.GetByManyIdsAsync(productIds);
                 var productsDict = dbProducts.ToDictionary(p => p.Id);
+                var existingProductIds = order.Items.Select(i => i.ProductId).ToHashSet();
 
                 foreach (var itemRequest in request.Items)
                 {
                     if (!productsDict.TryGetValue(itemRequest.ProductId, out var product))
                         throw new InvalidOperationException($"Produto {itemRequest.ProductId} não encontrado.");
 
-                    var isNewItem = !order.Items.Any(i => i.ProductId == itemRequest.ProductId);
+                    var isNewItem = existingProductIds.Add(itemRequest.ProductId);
                     if (isNewItem && !product.ProductStatus)
                         throw new InvalidOperationException($"O produto '{product.Name}' está inativo e não pode ser adicionado ao pedido.");
 

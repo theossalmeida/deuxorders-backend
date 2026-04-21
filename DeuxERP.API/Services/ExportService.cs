@@ -31,6 +31,28 @@ namespace DeuxERP.API.Services
             return Encoding.UTF8.GetBytes(sb.ToString());
         }
 
+        public async Task WriteCsvAsync(IAsyncEnumerable<OrderExportRow> rows, Stream output, CancellationToken ct = default)
+        {
+            await using var writer = new StreamWriter(output, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), leaveOpen: true);
+            await writer.WriteLineAsync("OrderId,Cliente,Data de Entrega,Status,Produto,Quantidade,Valor Unitário Pago,Total Pago");
+
+            await foreach (var row in rows.WithCancellation(ct))
+            {
+                await writer.WriteLineAsync(string.Join(",",
+                    row.OrderId,
+                    Escape(row.ClientName),
+                    row.DeliveryDate.ToString("dd/MM/yyyy"),
+                    StatusToString(row.Status),
+                    Escape(row.ProductName),
+                    row.Quantity,
+                    FormatCents(row.PaidUnitPrice),
+                    FormatCents(row.TotalPaid)
+                ));
+            }
+
+            await writer.FlushAsync();
+        }
+
         public byte[] GeneratePdf(IEnumerable<OrderExportRow> rows)
         {
             var rowList = rows.ToList();

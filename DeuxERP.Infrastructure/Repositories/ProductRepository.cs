@@ -55,7 +55,11 @@ namespace DeuxERP.Infrastructure.Repositories
                 query = query.Where(p => p.ProductStatus == status.Value);
 
             if (!string.IsNullOrWhiteSpace(search))
-                query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()));
+            {
+                query = _context.Database.IsNpgsql()
+                    ? query.Where(p => EF.Functions.ILike(p.Name, $"%{search}%"))
+                    : query.Where(p => p.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
+            }
 
             var totalCount = await query.CountAsync();
             var items = await query

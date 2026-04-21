@@ -21,6 +21,7 @@ namespace DeuxERP.Infrastructure.Repositories
                 .Include(o => o.Client)
                 .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
 
@@ -31,6 +32,7 @@ namespace DeuxERP.Infrastructure.Repositories
                 .Include(o => o.Client)
                 .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
 
@@ -60,6 +62,7 @@ namespace DeuxERP.Infrastructure.Repositories
                 .Include(o => o.Client)
                 .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
+                .AsSplitQuery()
                 .OrderByDescending(o => o.CreatedAt)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
@@ -80,6 +83,7 @@ namespace DeuxERP.Infrastructure.Repositories
                 .Include(o => o.Client)
                 .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
+                .AsSplitQuery()
                 .OrderByDescending(o => o.CreatedAt)
                 .Skip((page - 1) * size)
                 .Take(size)
@@ -161,6 +165,54 @@ namespace DeuxERP.Infrastructure.Repositories
                         i.TotalPaid
                     )))
                 .ToListAsync();
+        }
+
+        public IAsyncEnumerable<OrderExportRow> StreamForExportAsync(ExportFilter filter, CancellationToken ct = default)
+        {
+            var query = _context.Orders.AsNoTracking();
+
+            if (filter.Status.HasValue)
+                query = query.Where(o => o.Status == filter.Status.Value);
+
+            if (filter.From.HasValue)
+                query = query.Where(o => o.DeliveryDate >= filter.From.Value);
+
+            if (filter.To.HasValue)
+                query = query.Where(o => o.DeliveryDate <= filter.To.Value);
+
+            return query
+                .OrderBy(o => o.DeliveryDate)
+                .SelectMany(o => o.Items
+                    .Where(i => !i.ItemCanceled)
+                    .Select(i => new OrderExportRow(
+                        o.Id,
+                        o.Client.Name,
+                        o.DeliveryDate,
+                        o.Status,
+                        i.Product.Name,
+                        i.Quantity,
+                        i.PaidUnitPrice,
+                        i.TotalPaid
+                    )))
+                .AsAsyncEnumerable();
+        }
+
+        public async Task<int> CountForExportAsync(ExportFilter filter, CancellationToken ct = default)
+        {
+            var query = _context.Orders.AsNoTracking();
+
+            if (filter.Status.HasValue)
+                query = query.Where(o => o.Status == filter.Status.Value);
+
+            if (filter.From.HasValue)
+                query = query.Where(o => o.DeliveryDate >= filter.From.Value);
+
+            if (filter.To.HasValue)
+                query = query.Where(o => o.DeliveryDate <= filter.To.Value);
+
+            return await query
+                .SelectMany(o => o.Items.Where(i => !i.ItemCanceled))
+                .CountAsync(ct);
         }
     }
 }

@@ -62,7 +62,7 @@ namespace DeuxERP.Application.DTOs
         string Name,
         string? Mobile,
         bool Status,
-        ClientStats Stats,
+        ClientStats? Stats,
         PagedOrdersResponse? Orders
     );
 

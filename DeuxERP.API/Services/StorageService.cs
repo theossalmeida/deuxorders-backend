@@ -66,7 +66,7 @@ namespace DeuxERP.API.Services
             request.Content = new ByteArrayContent(bytes);
             request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
 
-            var response = await _httpClient.SendAsync(request);
+            using var response = await _httpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException("Falha ao fazer upload da imagem. Tente novamente mais tarde.");
@@ -76,12 +76,12 @@ namespace DeuxERP.API.Services
         }
 
         public string GeneratePresignedUploadUrl(string objectKey, string contentType)
-            => BuildPresignedUrl("PUT", objectKey, expiresInSeconds: 900);
+            => BuildPresignedUrl("PUT", objectKey, contentType, expiresInSeconds: 900);
 
         public List<string>? GetSignedReadUrls(List<string>? objectKeys)
         {
             if (objectKeys == null || objectKeys.Count == 0) return null;
-            return objectKeys.Select(k => BuildPresignedUrl("GET", k, expiresInSeconds: 3600)).ToList();
+            return objectKeys.Select(k => BuildPresignedUrl("GET", k, null, expiresInSeconds: 3600)).ToList();
         }
 
         public async Task DeleteObjectAsync(string objectKey)
@@ -118,20 +118,21 @@ namespace DeuxERP.API.Services
             request.Headers.TryAddWithoutValidation("x-amz-content-sha256", payloadHash);
             request.Headers.TryAddWithoutValidation("x-amz-date", amzDate);
 
-            var response = await _httpClient.SendAsync(request);
+            using var response = await _httpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException("Falha ao remover o arquivo. Tente novamente mais tarde.");
             }
         }
 
-        private string BuildPresignedUrl(string method, string objectKey, int expiresInSeconds)
+        private string BuildPresignedUrl(string method, string objectKey, string? contentType, int expiresInSeconds)
         {
             var now = DateTime.UtcNow;
             var dateStamp = now.ToString("yyyyMMdd");
             var amzDate = now.ToString("yyyyMMddTHHmmssZ");
             var credentialScope = $"{dateStamp}/{Region}/{Service}/aws4_request";
             var host = new Uri(_endpoint).Host;
+            var signedHeaders = contentType is null ? "host" : "content-type;host";
 
             var queryParams = new SortedDictionary<string, string>
             {
@@ -139,7 +140,7 @@ namespace DeuxERP.API.Services
                 ["X-Amz-Credential"] = $"{_accessKeyId}/{credentialScope}",
                 ["X-Amz-Date"] = amzDate,
                 ["X-Amz-Expires"] = expiresInSeconds.ToString(),
-                ["X-Amz-SignedHeaders"] = "host"
+                ["X-Amz-SignedHeaders"] = signedHeaders
             };
 
             var canonicalQueryString = string.Join("&", queryParams.Select(kvp =>
@@ -151,8 +152,10 @@ namespace DeuxERP.API.Services
                 method,
                 $"/{_bucketName}{canonicalUri}",
                 canonicalQueryString,
-                $"host:{host}\n",
-                "host",
+                contentType is null
+                    ? $"host:{host}\n"
+                    : $"content-type:{contentType}\nhost:{host}\n",
+                signedHeaders,
                 "UNSIGNED-PAYLOAD");
 
             var stringToSign = string.Join("\n",

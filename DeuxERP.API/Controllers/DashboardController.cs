@@ -13,6 +13,7 @@ namespace DeuxERP.API.Controllers
     [Authorize]
     public class DashboardController : ControllerBase
     {
+        private const int MaxPdfExportRows = 2000;
         private readonly DashboardService _service;
         private readonly IOrderRepository _repository;
         private readonly ExportService _exportService;
@@ -79,20 +80,28 @@ namespace DeuxERP.API.Controllers
             [FromQuery] DateTime? from,
             [FromQuery] DateTime? to,
             [FromQuery] OrderStatus? status,
-            [FromQuery] string format = "csv")
+            [FromQuery] string format = "csv",
+            CancellationToken ct = default)
         {
             var (utcFrom, utcTo) = NormalizeRange(from, to);
-            var rows = await _repository.GetForExportAsync(new ExportFilter(utcFrom, utcTo, status));
             var filename = $"pedidos_{DateTime.UtcNow:yyyyMMdd}";
+            var filter = new ExportFilter(utcFrom, utcTo, status);
 
             if (format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
             {
+                var rowCount = await _repository.CountForExportAsync(filter, ct);
+                if (rowCount > MaxPdfExportRows)
+                    return BadRequest($"PDF limitado a {MaxPdfExportRows} linhas. Use CSV ou reduza o intervalo.");
+
+                var rows = await _repository.GetForExportAsync(filter);
                 var pdf = _exportService.GeneratePdf(rows);
                 return File(pdf, "application/pdf", $"{filename}.pdf");
             }
 
-            var csv = _exportService.GenerateCsv(rows);
-            return File(csv, "text/csv; charset=utf-8", $"{filename}.csv");
+            Response.ContentType = "text/csv; charset=utf-8";
+            Response.Headers["Content-Disposition"] = $"attachment; filename=\"{filename}.csv\"";
+            await _exportService.WriteCsvAsync(_repository.StreamForExportAsync(filter, ct), Response.Body, ct);
+            return new EmptyResult();
         }
 
         private static (DateTime? Start, DateTime? End) NormalizeRange(DateTime? start, DateTime? end)

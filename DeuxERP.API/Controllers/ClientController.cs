@@ -1,6 +1,7 @@
 ﻿using DeuxERP.Application.DTOs;
 using DeuxERP.Application.Mapping;
 using DeuxERP.Domain.Sales;
+using DeuxERP.Domain.Models;
 using DeuxERP.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -94,16 +95,18 @@ public class ClientController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(Guid id, CancellationToken ct, [FromQuery] bool orders = false, [FromQuery] int page = 1, [FromQuery] int size = 20)
-    {
-        if (page < 1) page = 1;
-        if (size < 1) size = 1;
-        if (size > 100) size = 100;
+        public async Task<IActionResult> GetById(Guid id, CancellationToken ct, [FromQuery] bool orders = false, [FromQuery] bool includeStats = true, [FromQuery] int page = 1, [FromQuery] int size = 20)
+        {
+            if (page < 1) page = 1;
+            if (size < 1) size = 1;
+            if (size > 100) size = 100;
 
         var client = await _repository.GetByIdAsync(id);
         if (client == null) return NotFound();
 
-        var stats = await _orderRepository.GetClientStatsAsync(id, ct);
+            ClientStats? stats = null;
+            if (includeStats)
+                stats = await _orderRepository.GetClientStatsAsync(id, ct);
 
         PagedOrdersResponse? pagedOrders = null;
         if (orders)
@@ -117,8 +120,8 @@ public class ClientController : ControllerBase
             );
         }
 
-        return Ok(new ClientDetailResponse(client.Id, client.Name, client.Mobile, client.Status, stats, pagedOrders));
-    }
+            return Ok(new ClientDetailResponse(client.Id, client.Name, client.Mobile, client.Status, stats, pagedOrders));
+        }
 
     [HttpGet("{id}/stats")]
     public async Task<IActionResult> GetStats(Guid id, CancellationToken ct)
