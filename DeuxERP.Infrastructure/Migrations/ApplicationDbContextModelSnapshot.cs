@@ -223,6 +223,48 @@ namespace DeuxERP.Infrastructure.Migrations
                     b.ToTable("checkout_sessions", (string)null);
                 });
 
+            modelBuilder.Entity("DeuxERP.Domain.Inventory.InventoryMaterial", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MeasureUnit")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<long>("UnitCost")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("inventory_materials", "inventory");
+                });
+
             modelBuilder.Entity("DeuxERP.Domain.Sales.Client", b =>
                 {
                     b.Property<Guid>("Id")
@@ -368,6 +410,24 @@ namespace DeuxERP.Infrastructure.Migrations
                     b.ToTable("order_items", (string)null);
                 });
 
+            modelBuilder.Entity("DeuxERP.Domain.Inventory.ProductRecipeItem", b =>
+                {
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MaterialId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("QuantityNeeded")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ProductId", "MaterialId");
+
+                    b.HasIndex("MaterialId");
+
+                    b.ToTable("product_recipe_items", "inventory");
+                });
+
             modelBuilder.Entity("DeuxERP.Domain.Payments.PaymentTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -485,6 +545,11 @@ namespace DeuxERP.Infrastructure.Migrations
 
                     b.Property<string>("Image")
                         .HasColumnType("text");
+
+                    b.Property<bool>("HasRecipe")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -614,6 +679,25 @@ namespace DeuxERP.Infrastructure.Migrations
                     b.Navigation("Client");
                 });
 
+            modelBuilder.Entity("DeuxERP.Domain.Inventory.ProductRecipeItem", b =>
+                {
+                    b.HasOne("DeuxERP.Domain.Inventory.InventoryMaterial", "Material")
+                        .WithMany()
+                        .HasForeignKey("MaterialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DeuxERP.Domain.Sales.Product", "Product")
+                        .WithMany("RecipeItems")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Material");
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("DeuxERP.Domain.Sales.OrderItem", b =>
                 {
                     b.HasOne("DeuxERP.Domain.Sales.Order", "Order")
@@ -636,6 +720,11 @@ namespace DeuxERP.Infrastructure.Migrations
             modelBuilder.Entity("DeuxERP.Domain.Sales.Order", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("DeuxERP.Domain.Sales.Product", b =>
+                {
+                    b.Navigation("RecipeItems");
                 });
 #pragma warning restore 612, 618
         }

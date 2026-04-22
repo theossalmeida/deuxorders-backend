@@ -1,8 +1,10 @@
-﻿using DeuxERP.API.Models;
+using DeuxERP.API.Models;
 using DeuxERP.API.Services;
+using DeuxERP.Application.DTOs;
 using DeuxERP.Application.Mapping;
-using DeuxERP.Domain.Sales;
 using DeuxERP.Domain.Interfaces;
+using DeuxERP.Domain.Inventory;
+using DeuxERP.Domain.Sales;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,65 +15,73 @@ public class ProductController : ControllerBase
 {
     private readonly IProductRepository _repository;
     private readonly IOrderRepository _orderRepository;
+    private readonly IInventoryMaterialRepository _inventoryMaterialRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IStorageService _storageService;
     private readonly ILogger<ProductController> _logger;
 
-    public ProductController(IProductRepository repository, IOrderRepository orderRepository, IUnitOfWork unitOfWork, IStorageService storageService, ILogger<ProductController> logger)
+    public ProductController(
+        IProductRepository repository,
+        IOrderRepository orderRepository,
+        IInventoryMaterialRepository inventoryMaterialRepository,
+        IUnitOfWork unitOfWork,
+        IStorageService storageService,
+        ILogger<ProductController> logger)
     {
         _repository = repository;
         _orderRepository = orderRepository;
+        _inventoryMaterialRepository = inventoryMaterialRepository;
         _unitOfWork = unitOfWork;
         _storageService = storageService;
         _logger = logger;
     }
 
     [HttpPost("new")]
-        public async Task<IActionResult> Create([FromForm] CreateProductRequest request)
+    public async Task<IActionResult> Create([FromForm] CreateProductRequest request)
+    {
+        var product = new Product(request.Name, request.Price, request.Category, request.Size);
+        string? uploadedObjectKey = null;
+
+        if (!string.IsNullOrWhiteSpace(request.Description))
+            product.SetDescription(request.Description);
+
+        if (request.Image != null)
         {
-            var product = new Product(request.Name, request.Price, request.Category, request.Size);
-            string? uploadedObjectKey = null;
-
-            if (!string.IsNullOrWhiteSpace(request.Description))
-                product.SetDescription(request.Description);
-
-            if (request.Image != null)
-            {
-                if (!FileValidation.IsAllowedImage(request.Image))
-                    return BadRequest("Tipo de imagem não permitido. Use JPG, PNG ou WebP.");
+            if (!FileValidation.IsAllowedImage(request.Image))
+                return BadRequest("Tipo de imagem não permitido. Use JPG, PNG ou WebP.");
 
             if (request.Image.Length > 5 * 1024 * 1024)
                 return BadRequest("A imagem não pode ser maior que 5 MB.");
 
-                var extension = Path.GetExtension(request.Image.FileName);
-                uploadedObjectKey = $"products-images/{Guid.NewGuid()}{extension}";
-                using var stream = request.Image.OpenReadStream();
-                await _storageService.UploadFileAsync(stream, uploadedObjectKey, request.Image.ContentType);
-                product.SetImage(uploadedObjectKey);
-            }
+            var extension = Path.GetExtension(request.Image.FileName);
+            uploadedObjectKey = $"products-images/{Guid.NewGuid()}{extension}";
+            using var stream = request.Image.OpenReadStream();
+            await _storageService.UploadFileAsync(stream, uploadedObjectKey, request.Image.ContentType);
+            product.SetImage(uploadedObjectKey);
+        }
 
-            _repository.Add(product);
+        _repository.Add(product);
 
-            if (!await _unitOfWork.CommitAsync())
+        if (!await _unitOfWork.CommitAsync())
+        {
+            if (uploadedObjectKey != null)
             {
-                if (uploadedObjectKey != null)
+                try
                 {
-                    try
-                    {
-                        await _storageService.DeleteObjectAsync(uploadedObjectKey);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogCritical(ex, "Failed to cleanup uploaded product image {ObjectKey} after create commit failure.", uploadedObjectKey);
-                        return StatusCode(StatusCodes.Status502BadGateway, "Falha ao limpar a imagem enviada após erro ao salvar o produto.");
-                    }
+                    await _storageService.DeleteObjectAsync(uploadedObjectKey);
                 }
-
-                return BadRequest("Falha ao salvar o produto no banco de dados.");
+                catch (Exception ex)
+                {
+                    _logger.LogCritical(ex, "Failed to cleanup uploaded product image {ObjectKey} after create commit failure.", uploadedObjectKey);
+                    return StatusCode(StatusCodes.Status502BadGateway, "Falha ao limpar a imagem enviada após erro ao salvar o produto.");
+                }
             }
 
-            var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
-            return CreatedAtRoute("GetProductById", new { id = product.Id }, product.ToResponse(imageUrl));
+            return BadRequest("Falha ao salvar o produto no banco de dados.");
+        }
+
+        var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
+        return CreatedAtRoute("GetProductById", new { id = product.Id }, product.ToResponse(imageUrl));
     }
 
     [HttpPut("{id}")]
@@ -82,40 +92,40 @@ public class ProductController : ControllerBase
 
         string? newObjectKey = null;
 
-            if (request.Image != null)
-            {
-                if (!FileValidation.IsAllowedImage(request.Image))
-                    return BadRequest("Tipo de imagem não permitido. Use JPG, PNG ou WebP.");
+        if (request.Image != null)
+        {
+            if (!FileValidation.IsAllowedImage(request.Image))
+                return BadRequest("Tipo de imagem não permitido. Use JPG, PNG ou WebP.");
 
             if (request.Image.Length > 5 * 1024 * 1024)
                 return BadRequest("A imagem não pode ser maior que 5 MB.");
 
-                var extension = Path.GetExtension(request.Image.FileName);
-                newObjectKey = $"products-images/{Guid.NewGuid()}{extension}";
-                using var stream = request.Image.OpenReadStream();
-                await _storageService.UploadFileAsync(stream, newObjectKey, request.Image.ContentType);
+            var extension = Path.GetExtension(request.Image.FileName);
+            newObjectKey = $"products-images/{Guid.NewGuid()}{extension}";
+            using var stream = request.Image.OpenReadStream();
+            await _storageService.UploadFileAsync(stream, newObjectKey, request.Image.ContentType);
         }
 
         var oldObjectKey = product.Image;
         product.Update(request.Name, request.Price, request.Description, newObjectKey ?? product.Image, request.Category, request.Size);
 
-            if (!await _unitOfWork.CommitAsync())
+        if (!await _unitOfWork.CommitAsync())
+        {
+            if (newObjectKey != null)
             {
-                if (newObjectKey != null)
+                try
                 {
-                    try
-                    {
-                        await _storageService.DeleteObjectAsync(newObjectKey);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogCritical(ex, "Failed to cleanup uploaded replacement image {ObjectKey} after update commit failure.", newObjectKey);
-                        return StatusCode(StatusCodes.Status502BadGateway, "Falha ao limpar a nova imagem após erro ao atualizar o produto.");
-                    }
+                    await _storageService.DeleteObjectAsync(newObjectKey);
                 }
-
-                return BadRequest("Falha ao atualizar o produto no banco de dados.");
+                catch (Exception ex)
+                {
+                    _logger.LogCritical(ex, "Failed to cleanup uploaded replacement image {ObjectKey} after update commit failure.", newObjectKey);
+                    return StatusCode(StatusCodes.Status502BadGateway, "Falha ao limpar a nova imagem após erro ao atualizar o produto.");
+                }
             }
+
+            return BadRequest("Falha ao atualizar o produto no banco de dados.");
+        }
 
         if (newObjectKey != null && oldObjectKey != null)
         {
@@ -143,6 +153,7 @@ public class ProductController : ControllerBase
                     _logger.LogCritical(ex, "Failed to cleanup replacement image {ObjectKey} after restoring product {ProductId} image reference.", newObjectKey, id);
                     return StatusCode(StatusCodes.Status502BadGateway, "Falha ao substituir a imagem do produto e a limpeza da nova imagem também falhou.");
                 }
+
                 return StatusCode(StatusCodes.Status502BadGateway, "Falha ao substituir a imagem do produto. Tente novamente.");
             }
         }
@@ -178,6 +189,7 @@ public class ProductController : ControllerBase
                     id);
                 return StatusCode(StatusCodes.Status500InternalServerError, "Falha ao restaurar a imagem do produto após erro no armazenamento.");
             }
+
             return StatusCode(StatusCodes.Status502BadGateway, "Falha ao remover a imagem do armazenamento. A imagem foi restaurada no banco.");
         }
 
@@ -231,13 +243,95 @@ public class ProductController : ControllerBase
         return Ok(product.ToResponse(imageUrl));
     }
 
+    [HttpPut("{id}/recipe")]
+    public async Task<IActionResult> SetRecipe(Guid id, [FromBody] SetRecipeRequest request)
+    {
+        var product = await _repository.GetByIdWithRecipeAsync(id);
+        if (product == null) return NotFound();
+
+        if (request.Items.Count == 0)
+        {
+            product.ClearRecipe();
+
+            if (!await _unitOfWork.CommitAsync())
+                return BadRequest("Falha ao limpar a receita do produto.");
+
+            return Ok(new ProductRecipeResponse(false, []));
+        }
+
+        var materialIds = request.Items.Select(item => item.MaterialId).Distinct().ToList();
+        var materials = (await _inventoryMaterialRepository.GetByManyIdsAsync(materialIds)).ToList();
+        var materialsById = materials.ToDictionary(material => material.Id);
+
+        if (materialsById.Count != materialIds.Count)
+            return BadRequest("Um ou mais materiais informados não existem.");
+
+        var inactiveMaterial = materials.FirstOrDefault(material => !material.Status);
+        if (inactiveMaterial != null)
+            return BadRequest($"O material '{inactiveMaterial.Name}' está inativo e não pode ser usado na receita.");
+
+        var existingRecipeItems = product.RecipeItems.ToDictionary(item => item.MaterialId);
+        var finalRecipeItems = new List<ProductRecipeItem>(request.Items.Count);
+
+        foreach (var item in request.Items)
+        {
+            if (existingRecipeItems.TryGetValue(item.MaterialId, out var existingRecipeItem))
+            {
+                existingRecipeItem.UpdateQuantity(item.Quantity);
+                finalRecipeItems.Add(existingRecipeItem);
+                continue;
+            }
+
+            finalRecipeItems.Add(new ProductRecipeItem(product.Id, item.MaterialId, item.Quantity));
+        }
+
+        product.SetRecipe(finalRecipeItems);
+
+        if (!await _unitOfWork.CommitAsync())
+            return BadRequest("Falha ao salvar a receita do produto.");
+
+        var responseItems = finalRecipeItems
+            .Select(recipeItem =>
+            {
+                var material = materialsById[recipeItem.MaterialId];
+                return new RecipeItemResponse(
+                    recipeItem.MaterialId,
+                    material.Name,
+                    recipeItem.QuantityNeeded,
+                    material.MeasureUnit.ToString());
+            })
+            .ToList();
+
+        return Ok(new ProductRecipeResponse(true, responseItems));
+    }
+
+    [HttpGet("{id}/recipe")]
+    public async Task<IActionResult> GetRecipe(Guid id)
+    {
+        var product = await _repository.GetByIdAsync(id);
+        if (product == null) return NotFound();
+
+        var recipeItems = await _repository.GetRecipeItemsByProductIdAsync(id);
+        var response = recipeItems
+            .Select(recipeItem => new RecipeItemResponse(
+                recipeItem.MaterialId,
+                recipeItem.Material.Name,
+                recipeItem.QuantityNeeded,
+                recipeItem.Material.MeasureUnit.ToString()))
+            .ToList();
+
+        return Ok(new ProductRecipeResponse(response.Count > 0, response));
+    }
+
     [HttpGet("{id}/stats")]
     public async Task<IActionResult> GetStats(Guid id, [FromQuery] string month, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(month) ||
             !DateTime.TryParseExact(month, "yyyy-MM", System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.None, out var parsed))
+        {
             return BadRequest("O parâmetro 'month' é obrigatório no formato YYYY-MM.");
+        }
 
         var product = await _repository.GetByIdAsync(id);
         if (product == null) return NotFound();

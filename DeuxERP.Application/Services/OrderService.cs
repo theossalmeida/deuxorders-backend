@@ -1,6 +1,6 @@
-﻿using DeuxERP.Domain.Sales;
-using DeuxERP.Domain.Interfaces;
 using DeuxERP.Application.DTOs;
+using DeuxERP.Domain.Interfaces;
+using DeuxERP.Domain.Sales;
 
 namespace DeuxERP.Application.Services
 {
@@ -10,17 +10,20 @@ namespace DeuxERP.Application.Services
         private readonly IClientRepository _clientRepository;
         private readonly IProductRepository _productRepository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly InventoryService _inventoryService;
 
         public OrderService(
             IOrderRepository repository,
             IClientRepository clientRepository,
             IProductRepository productRepository,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            InventoryService inventoryService)
         {
             _repository = repository;
             _clientRepository = clientRepository;
             _productRepository = productRepository;
             _unitOfWork = unitOfWork;
+            _inventoryService = inventoryService;
         }
 
         public async Task<Order> CreateOrderAsync(CreateOrderRequest request)
@@ -56,21 +59,27 @@ namespace DeuxERP.Application.Services
             return order;
         }
 
-        public async Task<Order> UpdateOrderAsync(Guid id, UpdateOrderRequest request)
+        public async Task<(Order Order, List<string> Warnings)> UpdateOrderAsync(Guid id, UpdateOrderRequest request)
         {
             var order = await _repository.GetByIdAsync(id)
                 ?? throw new InvalidOperationException("Pedido não encontrado.");
 
-            if (request.DeliveryDate.HasValue)
-                order.UpdateDeliveryDate(request.DeliveryDate.Value);
+            var warnings = new List<string>();
+            var statusBeforeUpdate = order.Status;
+            var isPreparingOrWaiting = statusBeforeUpdate == OrderStatus.Preparing
+                || statusBeforeUpdate == OrderStatus.WaitingPickupOrDelivery;
 
+            OrderStatus? requestedStatus = null;
             if (request.Status.HasValue)
             {
                 if (!Enum.IsDefined(typeof(OrderStatus), request.Status.Value))
                     throw new InvalidOperationException("Status inválido.");
 
-                order.UpdateStatus((OrderStatus)request.Status.Value);
+                requestedStatus = (OrderStatus)request.Status.Value;
             }
+
+            if (request.DeliveryDate.HasValue)
+                order.UpdateDeliveryDate(request.DeliveryDate.Value);
 
             if (request.Items != null && request.Items.Count > 0)
             {
@@ -83,6 +92,9 @@ namespace DeuxERP.Application.Services
                 {
                     if (!productsDict.TryGetValue(itemRequest.ProductId, out var product))
                         throw new InvalidOperationException($"Produto {itemRequest.ProductId} não encontrado.");
+
+                    var existingItem = order.Items.FirstOrDefault(i => i.ProductId == itemRequest.ProductId);
+                    var previousQuantity = existingItem?.Quantity ?? 0;
 
                     var isNewItem = existingProductIds.Add(itemRequest.ProductId);
                     if (isNewItem && !product.ProductStatus)
@@ -97,6 +109,29 @@ namespace DeuxERP.Application.Services
                         itemRequest.Massa,
                         itemRequest.Sabor
                     );
+
+                    if (!isPreparingOrWaiting)
+                        continue;
+
+                    var updatedItem = order.Items.First(i => i.ProductId == itemRequest.ProductId);
+                    var quantityDelta = updatedItem.Quantity - previousQuantity;
+                    if (quantityDelta == 0)
+                        continue;
+
+                    warnings.AddRange(await _inventoryService.AdjustForItemAsync(itemRequest.ProductId, quantityDelta));
+                }
+            }
+
+            if (requestedStatus.HasValue)
+            {
+                order.UpdateStatus(requestedStatus.Value);
+
+                if (requestedStatus.Value == OrderStatus.Preparing
+                    && statusBeforeUpdate != OrderStatus.Preparing
+                    && statusBeforeUpdate != OrderStatus.WaitingPickupOrDelivery
+                    && statusBeforeUpdate != OrderStatus.Completed)
+                {
+                    warnings.AddRange(await _inventoryService.DeductForOrderAsync(order));
                 }
             }
 
@@ -105,7 +140,7 @@ namespace DeuxERP.Application.Services
 
             await _unitOfWork.CommitAsync();
 
-            return order;
+            return (order, warnings.Distinct().ToList());
         }
     }
 }
