@@ -38,12 +38,10 @@ namespace DeuxERP.Domain.Sales
 
         public void MarkAsCompleted()
         {
-            //if (Status == OrderStatus.Canceled)
-            //    throw new InvalidOperationException("Não é possível concluir um pedido que foi cancelado.");
-            //if (Status == OrderStatus.Completed) return;
+            if (Status == OrderStatus.Completed) return;
 
-            UpdatedAt = DateTime.UtcNow;
             Status = OrderStatus.Completed;
+            UpdatedAt = DateTime.UtcNow;
         }
 
         public void MarkAsCanceled()
@@ -66,6 +64,8 @@ namespace DeuxERP.Domain.Sales
         public void UpdateStatus(OrderStatus status)
         {
             if (Status == status) return;
+            if (!Enum.IsDefined(typeof(OrderStatus), status))
+                throw new InvalidOperationException("Status inválido.");
 
             Status = status;
             UpdatedAt = DateTime.UtcNow;
