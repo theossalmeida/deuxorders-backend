@@ -1,9 +1,9 @@
-﻿using DeuxERP.API.Services;
+using DeuxERP.API.Services;
 using DeuxERP.Application.DTOs;
 using DeuxERP.Application.Mapping;
 using DeuxERP.Application.Services;
-using DeuxERP.Domain.Sales;
 using DeuxERP.Domain.Interfaces;
+using DeuxERP.Domain.Sales;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,27 +15,30 @@ namespace DeuxERP.API.Controllers
 {
     [Authorize]
     [ApiController]
-[Route("api/v1/orders")]
-public class OrderController : ControllerBase
-{
-    private readonly IOrderRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly OrderService _orderService;
-    private readonly IStorageService _storageService;
-    private readonly ILogger<OrderController> _logger;
-
-    public OrderController(
-        IOrderRepository repository,
-        IUnitOfWork unitOfWork,
-        OrderService orderService,
-        IStorageService storageService,
-        ILogger<OrderController> logger)
+    [Route("api/v1/orders")]
+    public class OrderController : ControllerBase
     {
-        _repository = repository;
-        _unitOfWork = unitOfWork;
-        _orderService = orderService;
-        _storageService = storageService;
-        _logger = logger;
+        private readonly IOrderRepository _repository;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly OrderService _orderService;
+        private readonly InventoryService _inventoryService;
+        private readonly IStorageService _storageService;
+        private readonly ILogger<OrderController> _logger;
+
+        public OrderController(
+            IOrderRepository repository,
+            IUnitOfWork unitOfWork,
+            OrderService orderService,
+            InventoryService inventoryService,
+            IStorageService storageService,
+            ILogger<OrderController> logger)
+        {
+            _repository = repository;
+            _unitOfWork = unitOfWork;
+            _orderService = orderService;
+            _inventoryService = inventoryService;
+            _storageService = storageService;
+            _logger = logger;
         }
 
         [HttpDelete("{id}/references")]
@@ -68,7 +71,7 @@ public class OrderController : ControllerBase
             }
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? "", signedUrls));
+            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));
         }
 
         [HttpPost("references/presigned-url")]
@@ -96,10 +99,14 @@ public class OrderController : ControllerBase
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateOrderRequest request)
         {
-            var order = await _orderService.UpdateOrderAsync(id, request);
+            var (order, warnings) = await _orderService.UpdateOrderAsync(id, request);
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
+            var response = order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls);
 
-            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
+            if (warnings.Count > 0)
+                return Ok(new { response, warnings });
+
+            return Ok(response);
         }
 
         [HttpPatch("{id}/complete")]
@@ -121,6 +128,12 @@ public class OrderController : ControllerBase
             var order = await _repository.GetByIdAsync(id);
             if (order == null) return NotFound();
 
+            var shouldRestoreInventory = order.Status == OrderStatus.Preparing
+                || order.Status == OrderStatus.WaitingPickupOrDelivery;
+
+            if (shouldRestoreInventory)
+                await _inventoryService.RestoreForOrderAsync(order);
+
             order.MarkAsCanceled();
             if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
@@ -134,7 +147,14 @@ public class OrderController : ControllerBase
             var order = await _repository.GetByIdAsync(id);
             if (order == null) return NotFound("Pedido não encontrado.");
 
+            var item = order.Items.FirstOrDefault(orderItem => orderItem.ProductId == productId);
+            if (item == null) return NotFound("Item não encontrado no pedido.");
+
             order.CancelItem(productId);
+
+            if (order.Status == OrderStatus.Preparing || order.Status == OrderStatus.WaitingPickupOrDelivery)
+                await _inventoryService.AdjustForItemAsync(productId, -item.Quantity);
+
             if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
@@ -148,10 +168,20 @@ public class OrderController : ControllerBase
             if (order == null) return NotFound("Pedido não encontrado.");
 
             order.UpdateItemQuantity(productId, request.Increment);
+
+            var warnings = new List<string>();
+            if (order.Status == OrderStatus.Preparing || order.Status == OrderStatus.WaitingPickupOrDelivery)
+                warnings = await _inventoryService.AdjustForItemAsync(productId, request.Increment);
+
             if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
+            var response = order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls);
+
+            if (warnings.Count > 0)
+                return Ok(new { response, warnings });
+
+            return Ok(response);
         }
 
         [HttpGet("{id}")]
@@ -161,7 +191,7 @@ public class OrderController : ControllerBase
             if (order == null) return NotFound();
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? "", signedUrls));
+            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));
         }
 
         [HttpGet("all")]
@@ -198,7 +228,7 @@ public class OrderController : ControllerBase
             await _unitOfWork.CommitAsync();
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? "", signedUrls));
+            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));
         }
 
         [HttpPatch("{id}/unpay")]
@@ -215,7 +245,7 @@ public class OrderController : ControllerBase
             await _unitOfWork.CommitAsync();
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? "", signedUrls));
+            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));
         }
 
         [HttpDelete("{id}")]

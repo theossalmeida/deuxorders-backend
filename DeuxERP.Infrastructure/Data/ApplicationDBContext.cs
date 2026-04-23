@@ -1,9 +1,10 @@
-﻿using DeuxERP.Application.Common;
+using DeuxERP.Application.Common;
 using DeuxERP.Domain.Cash;
 using DeuxERP.Domain.Common;
-using DeuxERP.Domain.Sales;
-using DeuxERP.Domain.Payments;
 using DeuxERP.Domain.Identity;
+using DeuxERP.Domain.Inventory;
+using DeuxERP.Domain.Payments;
+using DeuxERP.Domain.Sales;
 using Microsoft.EntityFrameworkCore;
 
 namespace DeuxERP.Infrastructure.Data
@@ -48,11 +49,13 @@ namespace DeuxERP.Infrastructure.Data
         public DbSet<CheckoutSession> CheckoutSessions { get; set; }
         public DbSet<CashFlowEntry> CashFlowEntries { get; set; }
         public DbSet<CashFlowAuditLog> CashFlowAuditLogs { get; set; }
+        public DbSet<InventoryMaterial> InventoryMaterials { get; set; }
+        public DbSet<ProductRecipeItem> ProductRecipeItems { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // User mapping
-            modelBuilder.Entity<User>(entity => {
+            modelBuilder.Entity<User>(entity =>
+            {
                 entity.ToTable("users");
                 entity.HasKey(e => e.Id);
                 entity.HasIndex(e => e.Email).IsUnique();
@@ -63,7 +66,6 @@ namespace DeuxERP.Infrastructure.Data
                 entity.Property(e => e.PasswordHash).IsRequired();
             });
 
-            // Client mapping
             modelBuilder.Entity<Client>(entity =>
             {
                 entity.ToTable("clients");
@@ -71,7 +73,6 @@ namespace DeuxERP.Infrastructure.Data
                 entity.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
             });
 
-            // Order mapping
             modelBuilder.Entity<Order>(entity =>
             {
                 entity.ToTable("orders");
@@ -94,11 +95,10 @@ namespace DeuxERP.Infrastructure.Data
                 entity.Property(o => o.PaidByUserName).HasMaxLength(200).IsRequired(false);
             });
 
-            // OrderItem mapping
             modelBuilder.Entity<OrderItem>(entity =>
             {
                 entity.ToTable("order_items");
-                entity.HasKey(i => new { i.OrderId, i.ProductId }); 
+                entity.HasKey(i => new { i.OrderId, i.ProductId });
                 entity.HasOne(i => i.Product)
                       .WithMany()
                       .HasForeignKey(i => i.ProductId)
@@ -115,15 +115,46 @@ namespace DeuxERP.Infrastructure.Data
                       .IsRequired(false);
             });
 
-            // Product mapping
-            modelBuilder.Entity<Product>(entity => {
+            modelBuilder.Entity<InventoryMaterial>(entity =>
+            {
+                entity.ToTable("inventory_materials", "inventory");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+                entity.Property(e => e.Status).HasDefaultValue(true);
+                entity.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid")
+                    .ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
+            });
+
+            modelBuilder.Entity<ProductRecipeItem>(entity =>
+            {
+                entity.ToTable("product_recipe_items", "inventory");
+                entity.HasKey(e => new { e.ProductId, e.MaterialId });
+                entity.HasOne(e => e.Product)
+                      .WithMany(p => p.RecipeItems)
+                      .HasForeignKey(e => e.ProductId)
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired();
+                entity.HasOne(e => e.Material)
+                      .WithMany()
+                      .HasForeignKey(e => e.MaterialId)
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired();
+            });
+
+            modelBuilder.Entity<Product>(entity =>
+            {
                 entity.ToTable("products");
                 entity.HasKey(e => e.Id);
                 entity.Property(p => p.AbacateStoreProductId).HasMaxLength(100).IsRequired(false);
+                entity.Property(p => p.HasRecipe).HasDefaultValue(false);
                 entity.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
+                entity.HasMany(p => p.RecipeItems)
+                      .WithOne(r => r.Product)
+                      .HasForeignKey(r => r.ProductId)
+                      .OnDelete(DeleteBehavior.Restrict);
+                entity.Navigation(p => p.RecipeItems).UsePropertyAccessMode(PropertyAccessMode.Field);
             });
 
-            // PaymentTransaction mapping
             modelBuilder.Entity<PaymentTransaction>(entity =>
             {
                 entity.ToTable("payment_transactions");
@@ -145,7 +176,6 @@ namespace DeuxERP.Infrastructure.Data
                 entity.Property(e => e.AbacateCustomerId).HasMaxLength(100);
             });
 
-            // CheckoutSession mapping
             modelBuilder.Entity<CheckoutSession>(entity =>
             {
                 entity.ToTable("checkout_sessions");
@@ -161,7 +191,6 @@ namespace DeuxERP.Infrastructure.Data
                 entity.Property(e => e.CheckoutUrl).HasMaxLength(500);
             });
 
-            // WebhookEventLog mapping
             modelBuilder.Entity<WebhookEventLog>(entity =>
             {
                 entity.ToTable("webhook_event_log");
@@ -175,7 +204,6 @@ namespace DeuxERP.Infrastructure.Data
                 entity.Property(e => e.AbacateBillingId).HasMaxLength(100);
             });
 
-            // CashFlowEntry mapping
             modelBuilder.Entity<CashFlowEntry>(entity =>
             {
                 entity.ToTable("cash_flow_entries", "cash");
@@ -200,7 +228,6 @@ namespace DeuxERP.Infrastructure.Data
                 entity.HasQueryFilter(e => e.DeletedAt == null);
             });
 
-            // CashFlowAuditLog mapping
             modelBuilder.Entity<CashFlowAuditLog>(entity =>
             {
                 entity.ToTable("cash_flow_audit_log", "cash");

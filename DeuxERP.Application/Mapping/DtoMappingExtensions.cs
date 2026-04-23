@@ -1,5 +1,6 @@
-﻿using DeuxERP.Domain.Sales;
 using DeuxERP.Application.DTOs;
+using DeuxERP.Domain.Inventory;
+using DeuxERP.Domain.Sales;
 
 namespace DeuxERP.Application.Mapping
 {
@@ -60,6 +61,7 @@ namespace DeuxERP.Application.Mapping
                 totalSpent
             );
         }
+
         public static ProductResponse ToResponse(this Product product, string? imageUrl = null)
         {
             return new ProductResponse(
@@ -72,6 +74,19 @@ namespace DeuxERP.Application.Mapping
                 product.Size
             );
         }
-    }
 
+        public static InventoryMaterialResponse ToResponse(this InventoryMaterial material)
+        {
+            return new InventoryMaterialResponse(
+                material.Id,
+                material.Name,
+                material.Quantity,
+                material.UnitCost,
+                material.MeasureUnit.ToString(),
+                material.Status,
+                material.CreatedAt,
+                material.UpdatedAt
+            );
+        }
+    }
 }

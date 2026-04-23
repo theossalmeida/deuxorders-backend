@@ -10,4 +10,6 @@
     {
         public decimal Price { get; set; }
     }
+
+    public record InventoryDropdownModel(Guid Id, string Name, string MeasureUnit);
 }

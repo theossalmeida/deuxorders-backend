@@ -109,11 +109,14 @@ namespace DeuxERP.Domain.Sales
 
         public void CancelItem(Guid productId)
         {
-            if (Status != OrderStatus.Received)
-                throw new InvalidOperationException("Apenas pedidos recebidos podem ter itens cancelados.");
+            if (Status == OrderStatus.Completed || Status == OrderStatus.Canceled)
+                throw new InvalidOperationException("Não é possível cancelar itens de um pedido finalizado ou cancelado.");
 
             var item = _items.FirstOrDefault(x => x.ProductId == productId)
                 ?? throw new InvalidOperationException("Item não encontrado no pedido.");
+
+            if (item.ItemCanceled)
+                throw new InvalidOperationException("Não é possível cancelar um item já cancelado.");
 
             item.MarkAsCanceled();
             RecalculateTotal();
@@ -121,8 +124,8 @@ namespace DeuxERP.Domain.Sales
 
         public void UpdateItemQuantity(Guid productId, int increment)
         {
-            if (Status != OrderStatus.Received)
-                throw new InvalidOperationException("Não é possível alterar quantidades de um pedido não recebido.");
+            if (Status == OrderStatus.Completed || Status == OrderStatus.Canceled)
+                throw new InvalidOperationException("Não é possível alterar quantidades de um pedido finalizado ou cancelado.");
 
             var item = _items.FirstOrDefault(x => x.ProductId == productId)
                 ?? throw new InvalidOperationException("Item não encontrado no pedido.");

@@ -118,6 +118,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IClientRepository, ClientRepository>();
+builder.Services.AddScoped<IInventoryMaterialRepository, InventoryMaterialRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<IPaymentTransactionRepository, PaymentTransactionRepository>();
@@ -144,6 +145,7 @@ builder.Services.AddScoped<DeuxERP.Application.Services.CashFlowService>();
 
 // Services config
 builder.Services.AddScoped<DeuxERP.Application.Services.OrderService>();
+builder.Services.AddScoped<DeuxERP.Application.Services.InventoryService>();
 builder.Services.AddScoped<DeuxERP.Application.Services.DashboardService>();
 builder.Services.AddSingleton<ExportService>();
 builder.Services.AddSingleton<IStorageService, StorageService>();

@@ -1,7 +1,8 @@
-﻿using DeuxERP.Application.DTOs;
-using DeuxERP.Domain.Sales;
+using DeuxERP.Application.DTOs;
 using DeuxERP.Domain.Interfaces;
+using DeuxERP.Domain.Inventory;
 using DeuxERP.Domain.Models;
+using DeuxERP.Domain.Sales;
 using DeuxERP.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,11 +16,20 @@ namespace DeuxERP.Infrastructure.Repositories
         {
             _context = context;
         }
-            
+
         public async Task<Product?> GetByIdAsync(Guid id)
         {
             return await _context.Products
                 .FirstOrDefaultAsync(o => o.Id == id);
+        }
+
+        public async Task<Product?> GetByIdWithRecipeAsync(Guid id)
+        {
+            return await _context.Products
+                .Include(p => p.RecipeItems)
+                    .ThenInclude(r => r.Material)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(p => p.Id == id);
         }
 
         public void Add(Product product)
@@ -47,6 +57,34 @@ namespace DeuxERP.Infrastructure.Repositories
                 .Where(p => ids.Contains(p.Id))
                 .ToListAsync();
         }
+
+        public async Task<List<ProductRecipeItem>> GetRecipeItemsByProductIdAsync(Guid productId)
+        {
+            return await _context.ProductRecipeItems
+                .AsNoTracking()
+                .Where(r => r.ProductId == productId)
+                .Include(r => r.Material)
+                .OrderBy(r => r.Material.Name)
+                .ToListAsync();
+        }
+
+        public async Task<Dictionary<Guid, List<ProductRecipeItem>>> GetRecipeItemsByProductIdsAsync(IEnumerable<Guid> productIds)
+        {
+            var ids = productIds.Distinct().ToList();
+            if (ids.Count == 0)
+                return [];
+
+            var recipeItems = await _context.ProductRecipeItems
+                .AsNoTracking()
+                .Where(r => ids.Contains(r.ProductId))
+                .Include(r => r.Material)
+                .ToListAsync();
+
+            return recipeItems
+                .GroupBy(r => r.ProductId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+        }
+
         public async Task<PagedResult<Product>> GetAllAsync(string? search, bool? status, int page = 1, int size = 20)
         {
             var query = _context.Products.AsNoTracking();
@@ -70,14 +108,13 @@ namespace DeuxERP.Infrastructure.Repositories
 
             return new PagedResult<Product>(items, totalCount, page, size);
         }
+
         public async Task<IEnumerable<ProductDropdownModel>> GetForDropdownAsync(bool? status)
         {
             var query = _context.Products.AsNoTracking();
 
             if (status.HasValue)
-            {
                 query = query.Where(p => p.ProductStatus == status.Value);
-            }
 
             return await query
                 .Select(p => new ProductDropdownModel
