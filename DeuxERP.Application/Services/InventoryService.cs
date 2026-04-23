@@ -1,18 +1,17 @@
-using DeuxERP.Domain.Interfaces;
+using DeuxERP.Application.Common;
 using DeuxERP.Domain.Inventory;
 using DeuxERP.Domain.Sales;
+using Microsoft.EntityFrameworkCore;
 
 namespace DeuxERP.Application.Services;
 
 public class InventoryService
 {
-    private readonly IInventoryMaterialRepository _inventoryMaterialRepository;
-    private readonly IProductRepository _productRepository;
+    private readonly IAppDbContext _db;
 
-    public InventoryService(IInventoryMaterialRepository inventoryMaterialRepository, IProductRepository productRepository)
+    public InventoryService(IAppDbContext db)
     {
-        _inventoryMaterialRepository = inventoryMaterialRepository;
-        _productRepository = productRepository;
+        _db = db;
     }
 
     public async Task<List<string>> DeductForOrderAsync(Order order)
@@ -58,8 +57,19 @@ public class InventoryService
         if (normalizedDeltas.Count == 0)
             return [];
 
-        var recipesByProductId = await _productRepository.GetRecipeItemsByProductIdsAsync(
-            normalizedDeltas.Select(item => item.ProductId));
+        var productIds = normalizedDeltas
+            .Select(item => item.ProductId)
+            .Distinct()
+            .ToList();
+
+        var recipeItems = await _db.ProductRecipeItems
+            .AsNoTracking()
+            .Where(recipeItem => productIds.Contains(recipeItem.ProductId))
+            .ToListAsync();
+
+        var recipesByProductId = recipeItems
+            .GroupBy(recipeItem => recipeItem.ProductId)
+            .ToDictionary(group => group.Key, group => group.ToList());
 
         if (recipesByProductId.Count == 0)
             return [];
@@ -69,17 +79,18 @@ public class InventoryService
             .Distinct()
             .ToList();
 
-        var materialsById = (await _inventoryMaterialRepository.GetByManyIdsAsync(materialIds))
-            .ToDictionary(material => material.Id);
+        var materialsById = await _db.InventoryMaterials
+            .Where(material => materialIds.Contains(material.Id))
+            .ToDictionaryAsync(material => material.Id);
 
         var affectedMaterialIds = new HashSet<Guid>();
 
         foreach (var (productId, quantityDelta) in normalizedDeltas)
         {
-            if (!recipesByProductId.TryGetValue(productId, out var recipeItems) || recipeItems.Count == 0)
+            if (!recipesByProductId.TryGetValue(productId, out var productRecipeItems) || productRecipeItems.Count == 0)
                 continue;
 
-            foreach (var recipeItem in recipeItems)
+            foreach (var recipeItem in productRecipeItems)
             {
                 if (!materialsById.TryGetValue(recipeItem.MaterialId, out var material))
                     throw new InvalidOperationException($"Material {recipeItem.MaterialId} não encontrado.");

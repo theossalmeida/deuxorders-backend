@@ -97,6 +97,7 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
     options.UseNpgsql(connectionString);
     options.AddInterceptors(sp.GetRequiredService<CashFlowAuditInterceptor>());
 });
+builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
 
 // CORS Policy
 builder.Services.AddCors(options =>
@@ -116,14 +117,9 @@ builder.Services.AddCors(options =>
 
 // Repository config
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-builder.Services.AddScoped<IProductRepository, ProductRepository>();
-builder.Services.AddScoped<IClientRepository, ClientRepository>();
-builder.Services.AddScoped<IInventoryMaterialRepository, InventoryMaterialRepository>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<IPaymentTransactionRepository, PaymentTransactionRepository>();
 builder.Services.AddScoped<ITokenService, TokenService>();
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Error handling config
 builder.Services.AddExceptionHandler<DeuxERP.API.Middlewares.GlobalExceptionHandler>();

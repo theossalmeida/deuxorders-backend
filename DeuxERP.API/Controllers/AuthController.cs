@@ -1,4 +1,5 @@
-﻿using DeuxERP.API.DTOs;
+using DeuxERP.API.DTOs;
+using DeuxERP.Application.Common;
 using DeuxERP.Domain.Identity;
 using DeuxERP.Domain.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -10,16 +11,14 @@ using Microsoft.EntityFrameworkCore;
 [EnableRateLimiting("auth")]
 public class AuthController : ControllerBase
 {
-    private readonly IUserRepository _userRepository;
+    private readonly IAppDbContext _db;
     private readonly ITokenService _tokenService;
-    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IUserRepository userRepository, ITokenService tokenService, IUnitOfWork unitOfWork, ILogger<AuthController> logger)
+    public AuthController(IAppDbContext db, ITokenService tokenService, ILogger<AuthController> logger)
     {
-        _userRepository = userRepository;
+        _db = db;
         _tokenService = tokenService;
-        _unitOfWork = unitOfWork;
         _logger = logger;
     }
 
@@ -32,20 +31,19 @@ public class AuthController : ControllerBase
         if (!_isDevMode && !(User.Identity?.IsAuthenticated ?? false))
             return Unauthorized("Token de autenticação necessário.");
 
-        var existingUser = await _userRepository.GetByEmail(request.Email) ?? await _userRepository.GetByUsername(request.Username);
+        var existingUser = await _db.Users.FirstOrDefaultAsync(user =>
+            user.Email == request.Email || user.Username == request.Username);
         if (existingUser != null)
             return Conflict("Usuário com este e-mail ou username já existe.");
 
         var hash = BCrypt.Net.BCrypt.HashPassword(request.Password);
-
         var user = new User(request.Name, request.Username, hash, request.Email, UserRole.Administrator);
 
-        _userRepository.Add(user);
+        _db.Users.Add(user);
 
         try
         {
-            var success = await _unitOfWork.CommitAsync();
-            if (!success)
+            if (await _db.SaveChangesAsync() == 0)
                 return BadRequest("Falha ao registrar o usuário no banco de dados.");
         }
         catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("unique") == true
@@ -64,7 +62,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        var user = await _userRepository.GetByEmail(request.Email);
+        var user = await _db.Users.FirstOrDefaultAsync(user => user.Email == request.Email);
 
         if (user == null)
         {

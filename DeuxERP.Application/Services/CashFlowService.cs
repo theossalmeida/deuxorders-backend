@@ -1,4 +1,5 @@
-﻿using DeuxERP.Application.DTOs;
+using DeuxERP.Application.Common;
+using DeuxERP.Application.DTOs;
 using DeuxERP.Domain.Cash;
 using DeuxERP.Domain.Cash.Enums;
 using DeuxERP.Domain.Interfaces;
@@ -8,12 +9,12 @@ namespace DeuxERP.Application.Services;
 public class CashFlowService
 {
     private readonly ICashFlowRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly IAppDbContext _db;
 
-    public CashFlowService(ICashFlowRepository repository, IUnitOfWork unitOfWork)
+    public CashFlowService(ICashFlowRepository repository, IAppDbContext db)
     {
         _repository = repository;
-        _unitOfWork = unitOfWork;
+        _db = db;
     }
 
     public async Task<CashFlowEntry> CreateAsync(CreateCashEntryRequest req, Guid userId, string userName)
@@ -24,7 +25,7 @@ public class CashFlowService
             userId, userName, req.SourceId);
 
         _repository.Add(entry);
-        await _unitOfWork.CommitAsync();
+        await _db.SaveChangesAsync();
         return entry;
     }
 
@@ -36,7 +37,7 @@ public class CashFlowService
         entry.Update(req.BillingDate, req.Type, req.Category,
             req.Counterparty, req.AmountCents, req.Notes, userId, userName);
 
-        await _unitOfWork.CommitAsync();
+        await _db.SaveChangesAsync();
         return entry;
     }
 
@@ -46,7 +47,7 @@ public class CashFlowService
             ?? throw new InvalidOperationException("Entrada de caixa não encontrada.");
 
         entry.SoftDelete(userId, userName, reason);
-        await _unitOfWork.CommitAsync();
+        await _db.SaveChangesAsync();
     }
 
     public Task<CashFlowEntry?> GetByIdAsync(Guid id, bool includeDeleted = false)

@@ -1,4 +1,5 @@
 using DeuxERP.API.Services;
+using DeuxERP.Application.Common;
 using DeuxERP.Application.DTOs;
 using DeuxERP.Application.Mapping;
 using DeuxERP.Application.Services;
@@ -19,7 +20,7 @@ namespace DeuxERP.API.Controllers
     public class OrderController : ControllerBase
     {
         private readonly IOrderRepository _repository;
-        private readonly IUnitOfWork _unitOfWork;
+        private readonly IAppDbContext _db;
         private readonly OrderService _orderService;
         private readonly InventoryService _inventoryService;
         private readonly IStorageService _storageService;
@@ -27,14 +28,14 @@ namespace DeuxERP.API.Controllers
 
         public OrderController(
             IOrderRepository repository,
-            IUnitOfWork unitOfWork,
+            IAppDbContext db,
             OrderService orderService,
             InventoryService inventoryService,
             IStorageService storageService,
             ILogger<OrderController> logger)
         {
             _repository = repository;
-            _unitOfWork = unitOfWork;
+            _db = db;
             _orderService = orderService;
             _inventoryService = inventoryService;
             _storageService = storageService;
@@ -49,7 +50,7 @@ namespace DeuxERP.API.Controllers
 
             order.RemoveReference(request.ObjectKey);
 
-            if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
+            if (await _db.SaveChangesAsync() == 0) return BadRequest("Falha ao salvar no banco.");
 
             try
             {
@@ -58,7 +59,7 @@ namespace DeuxERP.API.Controllers
             catch
             {
                 order.AppendReferences(new List<string> { request.ObjectKey });
-                if (!await _unitOfWork.CommitAsync())
+                if (await _db.SaveChangesAsync() == 0)
                 {
                     _logger.LogCritical(
                         "Failed to restore order reference {ObjectKey} after storage delete failure for order {OrderId}.",
@@ -116,7 +117,7 @@ namespace DeuxERP.API.Controllers
             if (order == null) return NotFound();
 
             order.MarkAsCompleted();
-            if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
+            if (await _db.SaveChangesAsync() == 0) return BadRequest("Falha ao salvar no banco.");
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
@@ -135,7 +136,7 @@ namespace DeuxERP.API.Controllers
                 await _inventoryService.RestoreForOrderAsync(order);
 
             order.MarkAsCanceled();
-            if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
+            if (await _db.SaveChangesAsync() == 0) return BadRequest("Falha ao salvar no banco.");
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
@@ -155,7 +156,7 @@ namespace DeuxERP.API.Controllers
             if (order.Status == OrderStatus.Preparing || order.Status == OrderStatus.WaitingPickupOrDelivery)
                 await _inventoryService.AdjustForItemAsync(productId, -item.Quantity);
 
-            if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
+            if (await _db.SaveChangesAsync() == 0) return BadRequest("Falha ao salvar no banco.");
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
@@ -173,7 +174,7 @@ namespace DeuxERP.API.Controllers
             if (order.Status == OrderStatus.Preparing || order.Status == OrderStatus.WaitingPickupOrDelivery)
                 warnings = await _inventoryService.AdjustForItemAsync(productId, request.Increment);
 
-            if (!await _unitOfWork.CommitAsync()) return BadRequest("Falha ao salvar no banco.");
+            if (await _db.SaveChangesAsync() == 0) return BadRequest("Falha ao salvar no banco.");
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             var response = order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls);
@@ -225,7 +226,7 @@ namespace DeuxERP.API.Controllers
             var userName = User.FindFirst("email")!.Value;
 
             order.MarkAsPaid(userId, userName, DateTime.UtcNow);
-            await _unitOfWork.CommitAsync();
+            await _db.SaveChangesAsync();
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));
@@ -242,7 +243,7 @@ namespace DeuxERP.API.Controllers
             var userName = User.FindFirst("email")!.Value;
 
             order.UnmarkAsPaid(userId, userName, request.Reason);
-            await _unitOfWork.CommitAsync();
+            await _db.SaveChangesAsync();
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));

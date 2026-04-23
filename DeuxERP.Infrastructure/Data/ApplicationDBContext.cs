@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DeuxERP.Infrastructure.Data
 {
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext : DbContext, IAppDbContext
     {
         private readonly IDomainEventDispatcher _dispatcher;
 
