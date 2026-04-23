@@ -50,6 +50,8 @@ public class InventoryService
         List<(Guid ProductId, int QuantityDelta)> itemDeltas,
         bool includeWarnings)
     {
+        // Keep stock movement centralized here so a future LocationId can be threaded
+        // through one path instead of leaking inventory concerns into controllers.
         var normalizedDeltas = itemDeltas
             .Where(item => item.QuantityDelta != 0)
             .ToList();

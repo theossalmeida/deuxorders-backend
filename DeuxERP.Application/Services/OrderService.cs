@@ -8,13 +8,16 @@ namespace DeuxERP.Application.Services
     public class OrderService
     {
         private readonly IAppDbContext _db;
+        private readonly ICurrentUserAccessor _currentUser;
         private readonly InventoryService _inventoryService;
 
         public OrderService(
             IAppDbContext db,
+            ICurrentUserAccessor currentUser,
             InventoryService inventoryService)
         {
             _db = db;
+            _currentUser = currentUser;
             _inventoryService = inventoryService;
         }
 
@@ -54,11 +57,7 @@ namespace DeuxERP.Application.Services
 
         public async Task<(Order Order, List<string> Warnings)> UpdateOrderAsync(Guid id, UpdateOrderRequest request)
         {
-            var order = await _db.Orders
-                .Include(currentOrder => currentOrder.Client)
-                .Include(currentOrder => currentOrder.Items)
-                    .ThenInclude(item => item.Product)
-                .FirstOrDefaultAsync(currentOrder => currentOrder.Id == id)
+            var order = await LoadTrackedOrderAsync(id)
                 ?? throw new InvalidOperationException("Pedido não encontrado.");
 
             var warnings = new List<string>();
@@ -140,6 +139,85 @@ namespace DeuxERP.Application.Services
             await _db.SaveChangesAsync();
 
             return (order, warnings.Distinct().ToList());
+        }
+
+        public async Task<Order> RemoveReferenceAsync(Order order, string objectKey)
+        {
+            order.RemoveReference(objectKey);
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public async Task<Order> CompleteAsync(Order order)
+        {
+            order.MarkAsCompleted();
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public async Task<Order> CancelAsync(Order order)
+        {
+            var shouldRestoreInventory = order.Status == OrderStatus.Preparing
+                || order.Status == OrderStatus.WaitingPickupOrDelivery;
+
+            if (shouldRestoreInventory)
+                await _inventoryService.RestoreForOrderAsync(order);
+
+            order.MarkAsCanceled();
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public async Task<Order> CancelItemAsync(Order order, Guid productId)
+        {
+            var item = order.Items.FirstOrDefault(orderItem => orderItem.ProductId == productId)
+                ?? throw new InvalidOperationException("Item não encontrado no pedido.");
+
+            var shouldRestoreInventory = order.Status == OrderStatus.Preparing
+                || order.Status == OrderStatus.WaitingPickupOrDelivery;
+
+            order.CancelItem(productId);
+
+            if (shouldRestoreInventory)
+                await _inventoryService.AdjustForItemAsync(productId, -item.Quantity);
+
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public async Task<(Order Order, List<string> Warnings)> UpdateItemQuantityAsync(Order order, Guid productId, int increment)
+        {
+            order.UpdateItemQuantity(productId, increment);
+
+            var warnings = new List<string>();
+            if (order.Status == OrderStatus.Preparing || order.Status == OrderStatus.WaitingPickupOrDelivery)
+                warnings = await _inventoryService.AdjustForItemAsync(productId, increment);
+
+            await _db.SaveChangesAsync();
+            return (order, warnings);
+        }
+
+        public async Task<Order> MarkAsPaidAsync(Order order)
+        {
+            order.MarkAsPaid(_currentUser.UserId, _currentUser.UserName, DateTime.UtcNow);
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public async Task<Order> UnmarkAsPaidAsync(Order order, string reason)
+        {
+            order.UnmarkAsPaid(_currentUser.UserId, _currentUser.UserName, reason);
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public Task<Order?> LoadTrackedOrderAsync(Guid id)
+        {
+            return _db.Orders
+                .Include(order => order.Client)
+                .Include(order => order.Items)
+                    .ThenInclude(item => item.Product)
+                .FirstOrDefaultAsync(order => order.Id == id);
         }
     }
 }

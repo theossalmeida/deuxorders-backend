@@ -15,16 +15,6 @@ namespace DeuxERP.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<Order?> GetByIdAsync(Guid id)
-        {
-            return await _context.Orders
-                .Include(o => o.Client)
-                .Include(o => o.Items)
-                    .ThenInclude(i => i.Product)
-                .AsSplitQuery()
-                .FirstOrDefaultAsync(o => o.Id == id);
-        }
-
         public async Task<Order?> GetByIdReadOnlyAsync(Guid id)
         {
             return await _context.Orders
@@ -34,19 +24,6 @@ namespace DeuxERP.Infrastructure.Repositories
                     .ThenInclude(i => i.Product)
                 .AsSplitQuery()
                 .FirstOrDefaultAsync(o => o.Id == id);
-        }
-
-        public void Add(Order order) => _context.Orders.Add(order);
-
-        public void Update(Order order) => _context.Orders.Update(order);
-
-        public async Task<bool> DeleteAsync(Guid id)
-        {
-            var rowsAffected = await _context.Orders
-                .Where(o => o.Id == id)
-                .ExecuteDeleteAsync();
-
-            return rowsAffected > 0;
         }
 
         public async Task<PagedResult<Order>> GetAllAsync(int pageNumber, int pageSize, OrderStatus? status = null)

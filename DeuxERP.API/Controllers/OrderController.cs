@@ -7,6 +7,7 @@ using DeuxERP.Domain.Interfaces;
 using DeuxERP.Domain.Sales;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 public record PresignedUploadRequest(string FileName, string ContentType);
 public record RemoveReferenceRequest(string ObjectKey);
@@ -19,25 +20,22 @@ namespace DeuxERP.API.Controllers
     [Route("api/v1/orders")]
     public class OrderController : ControllerBase
     {
-        private readonly IOrderRepository _repository;
         private readonly IAppDbContext _db;
+        private readonly IOrderRepository _repository;
         private readonly OrderService _orderService;
-        private readonly InventoryService _inventoryService;
         private readonly IStorageService _storageService;
         private readonly ILogger<OrderController> _logger;
 
         public OrderController(
-            IOrderRepository repository,
             IAppDbContext db,
+            IOrderRepository repository,
             OrderService orderService,
-            InventoryService inventoryService,
             IStorageService storageService,
             ILogger<OrderController> logger)
         {
-            _repository = repository;
             _db = db;
+            _repository = repository;
             _orderService = orderService;
-            _inventoryService = inventoryService;
             _storageService = storageService;
             _logger = logger;
         }
@@ -45,12 +43,10 @@ namespace DeuxERP.API.Controllers
         [HttpDelete("{id}/references")]
         public async Task<IActionResult> RemoveReference(Guid id, [FromBody] RemoveReferenceRequest request)
         {
-            var order = await _repository.GetByIdAsync(id);
+            var order = await _orderService.LoadTrackedOrderAsync(id);
             if (order == null) return NotFound();
 
-            order.RemoveReference(request.ObjectKey);
-
-            if (await _db.SaveChangesAsync() == 0) return BadRequest("Falha ao salvar no banco.");
+            await _orderService.RemoveReferenceAsync(order, request.ObjectKey);
 
             try
             {
@@ -58,7 +54,7 @@ namespace DeuxERP.API.Controllers
             }
             catch
             {
-                order.AppendReferences(new List<string> { request.ObjectKey });
+                order.AppendReferences([request.ObjectKey]);
                 if (await _db.SaveChangesAsync() == 0)
                 {
                     _logger.LogCritical(
@@ -113,11 +109,10 @@ namespace DeuxERP.API.Controllers
         [HttpPatch("{id}/complete")]
         public async Task<IActionResult> Complete(Guid id)
         {
-            var order = await _repository.GetByIdAsync(id);
+            var order = await _orderService.LoadTrackedOrderAsync(id);
             if (order == null) return NotFound();
 
-            order.MarkAsCompleted();
-            if (await _db.SaveChangesAsync() == 0) return BadRequest("Falha ao salvar no banco.");
+            order = await _orderService.CompleteAsync(order);
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
@@ -126,17 +121,10 @@ namespace DeuxERP.API.Controllers
         [HttpPatch("{id}/cancel")]
         public async Task<IActionResult> Cancel(Guid id)
         {
-            var order = await _repository.GetByIdAsync(id);
+            var order = await _orderService.LoadTrackedOrderAsync(id);
             if (order == null) return NotFound();
 
-            var shouldRestoreInventory = order.Status == OrderStatus.Preparing
-                || order.Status == OrderStatus.WaitingPickupOrDelivery;
-
-            if (shouldRestoreInventory)
-                await _inventoryService.RestoreForOrderAsync(order);
-
-            order.MarkAsCanceled();
-            if (await _db.SaveChangesAsync() == 0) return BadRequest("Falha ao salvar no banco.");
+            order = await _orderService.CancelAsync(order);
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
@@ -145,18 +133,13 @@ namespace DeuxERP.API.Controllers
         [HttpPatch("{id}/items/{productId}/cancel")]
         public async Task<IActionResult> CancelItem(Guid id, Guid productId)
         {
-            var order = await _repository.GetByIdAsync(id);
+            var order = await _orderService.LoadTrackedOrderAsync(id);
             if (order == null) return NotFound("Pedido não encontrado.");
 
-            var item = order.Items.FirstOrDefault(orderItem => orderItem.ProductId == productId);
-            if (item == null) return NotFound("Item não encontrado no pedido.");
+            if (!order.Items.Any(item => item.ProductId == productId))
+                return NotFound("Item não encontrado no pedido.");
 
-            order.CancelItem(productId);
-
-            if (order.Status == OrderStatus.Preparing || order.Status == OrderStatus.WaitingPickupOrDelivery)
-                await _inventoryService.AdjustForItemAsync(productId, -item.Quantity);
-
-            if (await _db.SaveChangesAsync() == 0) return BadRequest("Falha ao salvar no banco.");
+            order = await _orderService.CancelItemAsync(order, productId);
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
@@ -165,19 +148,15 @@ namespace DeuxERP.API.Controllers
         [HttpPatch("{id}/items/{productId}/quantity")]
         public async Task<IActionResult> UpdateItemQuantity(Guid id, Guid productId, [FromBody] UpdateItemQuantityRequest request)
         {
-            var order = await _repository.GetByIdAsync(id);
+            var order = await _orderService.LoadTrackedOrderAsync(id);
             if (order == null) return NotFound("Pedido não encontrado.");
 
-            order.UpdateItemQuantity(productId, request.Increment);
+            if (!order.Items.Any(item => item.ProductId == productId))
+                return NotFound("Item não encontrado no pedido.");
 
-            var warnings = new List<string>();
-            if (order.Status == OrderStatus.Preparing || order.Status == OrderStatus.WaitingPickupOrDelivery)
-                warnings = await _inventoryService.AdjustForItemAsync(productId, request.Increment);
-
-            if (await _db.SaveChangesAsync() == 0) return BadRequest("Falha ao salvar no banco.");
-
-            var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            var response = order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls);
+            var (updatedOrder, warnings) = await _orderService.UpdateItemQuantityAsync(order, productId, request.Increment);
+            var signedUrls = _storageService.GetSignedReadUrls(updatedOrder.References);
+            var response = updatedOrder.ToResponse(updatedOrder.Client?.Name ?? "Cliente não encontrado", signedUrls);
 
             if (warnings.Count > 0)
                 return Ok(new { response, warnings });
@@ -188,7 +167,7 @@ namespace DeuxERP.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var order = await _repository.GetByIdAsync(id);
+            var order = await _repository.GetByIdReadOnlyAsync(id);
             if (order == null) return NotFound();
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
@@ -219,14 +198,10 @@ namespace DeuxERP.API.Controllers
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> MarkAsPaid(Guid id)
         {
-            var order = await _repository.GetByIdAsync(id);
+            var order = await _orderService.LoadTrackedOrderAsync(id);
             if (order == null) return NotFound();
 
-            var userId = Guid.Parse(User.FindFirst("id")!.Value);
-            var userName = User.FindFirst("email")!.Value;
-
-            order.MarkAsPaid(userId, userName, DateTime.UtcNow);
-            await _db.SaveChangesAsync();
+            order = await _orderService.MarkAsPaidAsync(order);
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));
@@ -236,14 +211,10 @@ namespace DeuxERP.API.Controllers
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> UnmarkAsPaid(Guid id, [FromBody] UnpayRequest request)
         {
-            var order = await _repository.GetByIdAsync(id);
+            var order = await _orderService.LoadTrackedOrderAsync(id);
             if (order == null) return NotFound();
 
-            var userId = Guid.Parse(User.FindFirst("id")!.Value);
-            var userName = User.FindFirst("email")!.Value;
-
-            order.UnmarkAsPaid(userId, userName, request.Reason);
-            await _db.SaveChangesAsync();
+            order = await _orderService.UnmarkAsPaidAsync(order, request.Reason);
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
             return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));
@@ -252,9 +223,11 @@ namespace DeuxERP.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteOrder(Guid id)
         {
-            var success = await _repository.DeleteAsync(id);
+            var rowsAffected = await _db.Orders
+                .Where(order => order.Id == id)
+                .ExecuteDeleteAsync();
 
-            if (!success)
+            if (rowsAffected == 0)
                 return NotFound(new { Message = "Pedido não encontrado." });
 
             return NoContent();
