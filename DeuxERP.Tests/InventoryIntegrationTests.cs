@@ -143,7 +143,7 @@ namespace DeuxERP.Tests
             await AuthenticateAsync();
             var suffix = NewSuffix();
 
-            var created = await CreateMaterialAsync(suffix, "Farinha", 2500, 10000, MeasureUnit.Kg);
+            var created = await CreateMaterialAsync(suffix, "Farinha", 2500, 10000, MeasureUnit.G);
             Assert.Equal($"Farinha {suffix}", created.Name);
             Assert.Equal(2500, created.Quantity);
             Assert.Equal(4, created.UnitCost);
@@ -151,15 +151,15 @@ namespace DeuxERP.Tests
 
             var byId = await GetMaterialAsync(created.Id);
             Assert.Equal(created.Id, byId.Id);
-            Assert.Equal("Kg", byId.MeasureUnit);
+            Assert.Equal("G", byId.MeasureUnit);
 
             var updateResponse = await _client.PutAsJsonAsync(
                 $"/api/v1/inventory/{created.Id}",
-                new UpdateMaterialRequest($"Farinha Integral {suffix}", MeasureUnit.Unit));
+                new UpdateMaterialRequest($"Farinha Integral {suffix}", MeasureUnit.U));
             updateResponse.EnsureSuccessStatusCode();
             var updated = (await updateResponse.Content.ReadFromJsonAsync<InventoryMaterialResponse>(JsonOptions))!;
             Assert.Equal($"Farinha Integral {suffix}", updated.Name);
-            Assert.Equal("Unit", updated.MeasureUnit);
+            Assert.Equal("U", updated.MeasureUnit);
 
             var deactivateResponse = await _client.PatchAsync($"/api/v1/inventory/{created.Id}/inactive", null);
             deactivateResponse.EnsureSuccessStatusCode();
@@ -188,7 +188,7 @@ namespace DeuxERP.Tests
             await AuthenticateAsync();
             var suffix = NewSuffix();
 
-            var created = await CreateMaterialAsync(suffix, "Leite", 1000, 5000, MeasureUnit.L);
+            var created = await CreateMaterialAsync(suffix, "Leite", 1000, 5000, MeasureUnit.ML);
 
             var restockResponse = await _client.PostAsJsonAsync(
                 $"/api/v1/inventory/{created.Id}/restock",
@@ -207,8 +207,8 @@ namespace DeuxERP.Tests
             await AuthenticateAsync();
             var suffix = NewSuffix();
             var product = await CreateProductAsync(suffix, $"Bolo {suffix}");
-            var flour = await CreateMaterialAsync(suffix, "Farinha", 5000, 10000, MeasureUnit.Kg);
-            var milk = await CreateMaterialAsync(suffix, "Leite", 3000, 9000, MeasureUnit.L);
+            var flour = await CreateMaterialAsync(suffix, "Farinha", 5000, 10000, MeasureUnit.G);
+            var milk = await CreateMaterialAsync(suffix, "Leite", 3000, 9000, MeasureUnit.ML);
 
             var invalidResponse = await _client.PutAsJsonAsync(
                 $"/api/v1/products/{product.Id}/recipe",
@@ -250,8 +250,8 @@ namespace DeuxERP.Tests
             var suffix = NewSuffix();
             var client = await CreateClientAsync(suffix);
             var product = await CreateProductAsync(suffix, $"Bolo de Chocolate {suffix}");
-            var flour = await CreateMaterialAsync(suffix, "Farinha", 5000, 10000, MeasureUnit.Kg);
-            var milk = await CreateMaterialAsync(suffix, "Leite", 2000, 5000, MeasureUnit.L);
+            var flour = await CreateMaterialAsync(suffix, "Farinha", 5000, 10000, MeasureUnit.G);
+            var milk = await CreateMaterialAsync(suffix, "Leite", 2000, 5000, MeasureUnit.ML);
 
             await SetRecipeAsync(
                 product.Id,
@@ -282,7 +282,7 @@ namespace DeuxERP.Tests
             var suffix = NewSuffix();
             var client = await CreateClientAsync(suffix);
             var product = await CreateProductAsync(suffix, $"Cobertura {suffix}");
-            var topping = await CreateMaterialAsync(suffix, "Cobertura", 5, 500, MeasureUnit.Unit);
+            var topping = await CreateMaterialAsync(suffix, "Cobertura", 5, 500, MeasureUnit.U);
 
             await SetRecipeAsync(product.Id, new RecipeItemRequest(topping.Id, 10));
 
@@ -308,7 +308,7 @@ namespace DeuxERP.Tests
             var suffix = NewSuffix();
             var client = await CreateClientAsync(suffix);
             var product = await CreateProductAsync(suffix, $"Pao {suffix}");
-            var flour = await CreateMaterialAsync(suffix, "Farinha", 100, 1000, MeasureUnit.Kg);
+            var flour = await CreateMaterialAsync(suffix, "Farinha", 100, 1000, MeasureUnit.G);
 
             await SetRecipeAsync(product.Id, new RecipeItemRequest(flour.Id, 30));
 
@@ -332,8 +332,8 @@ namespace DeuxERP.Tests
             var client = await CreateClientAsync(suffix);
             var cake = await CreateProductAsync(suffix, $"Bolo {suffix}");
             var drink = await CreateProductAsync(suffix, $"Suco {suffix}");
-            var flour = await CreateMaterialAsync(suffix, "Farinha", 100, 500, MeasureUnit.Kg);
-            var juice = await CreateMaterialAsync(suffix, "SucoBase", 100, 500, MeasureUnit.L);
+            var flour = await CreateMaterialAsync(suffix, "Farinha", 100, 500, MeasureUnit.G);
+            var juice = await CreateMaterialAsync(suffix, "SucoBase", 100, 500, MeasureUnit.ML);
 
             await SetRecipeAsync(cake.Id, new RecipeItemRequest(flour.Id, 20));
             await SetRecipeAsync(drink.Id, new RecipeItemRequest(juice.Id, 30));
@@ -363,7 +363,7 @@ namespace DeuxERP.Tests
             var suffix = NewSuffix();
             var client = await CreateClientAsync(suffix);
             var product = await CreateProductAsync(suffix, $"Cookie {suffix}");
-            var dough = await CreateMaterialAsync(suffix, "Massa", 100, 1000, MeasureUnit.Kg);
+            var dough = await CreateMaterialAsync(suffix, "Massa", 100, 1000, MeasureUnit.G);
 
             await SetRecipeAsync(product.Id, new RecipeItemRequest(dough.Id, 10));
 
@@ -391,7 +391,7 @@ namespace DeuxERP.Tests
             var suffix = NewSuffix();
             var client = await CreateClientAsync(suffix);
             var product = await CreateProductAsync(suffix, $"Sem Receita {suffix}");
-            var unrelatedMaterial = await CreateMaterialAsync(suffix, "Material", 100, 1000, MeasureUnit.Unit);
+            var unrelatedMaterial = await CreateMaterialAsync(suffix, "Material", 100, 1000, MeasureUnit.U);
 
             var order = await CreateOrderAsync(client.Id, new CreateOrderItemRequest(product.Id, 2, 1000, null, null, null));
             var updateResponse = await _client.PutAsJsonAsync(
@@ -411,7 +411,7 @@ namespace DeuxERP.Tests
         {
             await AuthenticateAsync();
             var suffix = NewSuffix();
-            var created = await CreateMaterialAsync(suffix, "Chocolate", 15, 19995, MeasureUnit.Kg);
+            var created = await CreateMaterialAsync(suffix, "Chocolate", 15, 19995, MeasureUnit.G);
 
             var restockResponse = await _client.PostAsJsonAsync(
                 $"/api/v1/inventory/{created.Id}/restock",

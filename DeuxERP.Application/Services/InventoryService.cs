@@ -108,9 +108,9 @@ public class InventoryService
     {
         return measureUnit switch
         {
-            MeasureUnit.Kg => "g (Kg)",
-            MeasureUnit.L => "mL (L)",
-            MeasureUnit.Unit => "un (Unit)",
+            MeasureUnit.ML => "mL",
+            MeasureUnit.G => "g",
+            MeasureUnit.U => "u",
             _ => measureUnit.ToString()
         };
     }

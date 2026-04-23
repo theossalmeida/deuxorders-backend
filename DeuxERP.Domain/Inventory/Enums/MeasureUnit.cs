@@ -2,7 +2,7 @@ namespace DeuxERP.Domain.Inventory;
 
 public enum MeasureUnit
 {
-    Kg = 1,
-    L = 2,
-    Unit = 3
+    ML = 1,
+    G = 2,
+    U = 3
 }
