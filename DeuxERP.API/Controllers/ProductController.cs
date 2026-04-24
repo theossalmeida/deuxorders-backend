@@ -238,7 +238,9 @@ public class ProductController : ControllerBase
             {
                 Id = product.Id,
                 Name = product.Name,
-                Price = product.Price
+                Price = product.Price,
+                Category = product.Category,
+                Size = product.Size
             })
             .ToListAsync();
 
