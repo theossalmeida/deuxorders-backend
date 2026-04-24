@@ -349,6 +349,109 @@ public class ProductController : ControllerBase
         return Ok(new ProductRecipeResponse(response.Count > 0, response));
     }
 
+    [HttpGet("{id}/recipe-options")]
+    public async Task<IActionResult> GetRecipeOptions(Guid id)
+    {
+        var productExists = await _db.Products.AsNoTracking().AnyAsync(product => product.Id == id);
+        if (!productExists) return NotFound();
+
+        var options = await _db.ProductRecipeOptions
+            .AsNoTracking()
+            .Where(option => option.ProductId == id)
+            .Include(option => option.Items)
+                .ThenInclude(item => item.Material)
+            .OrderBy(option => option.Type)
+            .ThenBy(option => option.Name)
+            .ToListAsync();
+
+        return Ok(new ProductRecipeOptionsResponse(options.Select(ToRecipeOptionResponse).ToList()));
+    }
+
+    [HttpPut("{id}/recipe-options")]
+    public async Task<IActionResult> SetRecipeOption(Guid id, [FromBody] SetRecipeOptionRequest request)
+    {
+        var productExists = await _db.Products.AsNoTracking().AnyAsync(product => product.Id == id);
+        if (!productExists) return NotFound();
+
+        var normalizedName = request.Name.Trim();
+        var option = await _db.ProductRecipeOptions
+            .Include(recipeOption => recipeOption.Items)
+            .FirstOrDefaultAsync(recipeOption =>
+                recipeOption.ProductId == id &&
+                recipeOption.Type == request.Type &&
+                recipeOption.Name == normalizedName);
+
+        if (request.Items.Count == 0)
+        {
+            if (option != null)
+            {
+                _db.ProductRecipeOptions.Remove(option);
+                await _db.SaveChangesAsync();
+            }
+
+            return Ok(new ProductRecipeOptionResponse(Guid.Empty, request.Type, normalizedName, false, []));
+        }
+
+        var materialIds = request.Items.Select(item => item.MaterialId).Distinct().ToList();
+        var materials = await _db.InventoryMaterials
+            .Where(material => materialIds.Contains(material.Id))
+            .ToListAsync();
+        var materialsById = materials.ToDictionary(material => material.Id);
+
+        if (materialsById.Count != materialIds.Count)
+            return BadRequest("Um ou mais materiais informados não existem.");
+
+        var inactiveMaterial = materials.FirstOrDefault(material => !material.Status);
+        if (inactiveMaterial != null)
+            return BadRequest($"O material '{inactiveMaterial.Name}' está inativo e não pode ser usado na receita.");
+
+        if (option == null)
+        {
+            option = new ProductRecipeOption(id, request.Type, normalizedName);
+            _db.ProductRecipeOptions.Add(option);
+        }
+        else
+        {
+            _db.ProductRecipeOptionItems.RemoveRange(option.Items);
+        }
+
+        var finalItems = request.Items
+            .Select(item => new ProductRecipeOptionItem(option.Id, item.MaterialId, item.Quantity))
+            .ToList();
+
+        option.SetItems(finalItems);
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new ProductRecipeOptionResponse(
+            option.Id,
+            option.Type,
+            option.Name,
+            true,
+            finalItems.Select(item =>
+            {
+                var material = materialsById[item.MaterialId];
+                return new RecipeItemResponse(
+                    item.MaterialId,
+                    material.Name,
+                    item.QuantityNeeded,
+                    material.MeasureUnit.ToString());
+            }).ToList()));
+    }
+
+    [HttpGet("{id}/order-options")]
+    public async Task<IActionResult> GetOrderOptions(Guid id)
+    {
+        var productExists = await _db.Products.AsNoTracking().AnyAsync(product => product.Id == id);
+        if (!productExists) return NotFound();
+
+        return Ok(new ProductOrderRecipeOptionsResponse(
+            RecipeOptionCatalog.CakeDoughs.ToList(),
+            RecipeOptionCatalog.CakeFillings.ToList(),
+            RecipeOptionCatalog.BrigadeiroFlavors.ToList(),
+            RecipeOptionCatalog.CookieFlavors.ToList()));
+    }
+
     [HttpGet("{id}/stats")]
     public async Task<IActionResult> GetStats(Guid id, [FromQuery] string month, CancellationToken ct)
     {
@@ -454,5 +557,19 @@ public class ProductController : ControllerBase
         {
             _logger.LogCritical(ex, "Failed to cleanup product image {ObjectKey} after {Reason}.", objectKey, reason);
         }
+    }
+
+    private static ProductRecipeOptionResponse ToRecipeOptionResponse(ProductRecipeOption option)
+    {
+        return new ProductRecipeOptionResponse(
+            option.Id,
+            option.Type,
+            option.Name,
+            option.Items.Count > 0,
+            option.Items.Select(item => new RecipeItemResponse(
+                item.MaterialId,
+                item.Material.Name,
+                item.QuantityNeeded,
+                item.Material.MeasureUnit.ToString())).ToList());
     }
 }

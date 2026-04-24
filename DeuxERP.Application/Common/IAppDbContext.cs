@@ -23,6 +23,8 @@ public interface IAppDbContext
     DbSet<CashFlowAuditLog> CashFlowAuditLogs { get; }
     DbSet<InventoryMaterial> InventoryMaterials { get; }
     DbSet<ProductRecipeItem> ProductRecipeItems { get; }
+    DbSet<ProductRecipeOption> ProductRecipeOptions { get; }
+    DbSet<ProductRecipeOptionItem> ProductRecipeOptionItems { get; }
     DbSet<OrderReferenceUpload> OrderReferenceUploads { get; }
     DbSet<PushSubscription> PushSubscriptions { get; }
     DbSet<DailyReminderLog> DailyReminderLogs { get; }

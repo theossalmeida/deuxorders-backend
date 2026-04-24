@@ -85,6 +85,27 @@ namespace DeuxERP.Tests
             return (await response.Content.ReadFromJsonAsync<ProductRecipeResponse>(JsonOptions))!;
         }
 
+        private async Task<ProductRecipeOptionResponse> SetRecipeOptionAsync(
+            Guid productId,
+            ProductRecipeOptionType type,
+            string name,
+            params RecipeItemRequest[] items)
+        {
+            var response = await _client.PutAsJsonAsync(
+                $"/api/v1/products/{productId}/recipe-options",
+                new SetRecipeOptionRequest(type, name, items.ToList()));
+
+            response.EnsureSuccessStatusCode();
+            return (await response.Content.ReadFromJsonAsync<ProductRecipeOptionResponse>(JsonOptions))!;
+        }
+
+        private async Task<ProductRecipeOptionsResponse> GetRecipeOptionsAsync(Guid productId)
+        {
+            var response = await _client.GetAsync($"/api/v1/products/{productId}/recipe-options");
+            response.EnsureSuccessStatusCode();
+            return (await response.Content.ReadFromJsonAsync<ProductRecipeOptionsResponse>(JsonOptions))!;
+        }
+
         private async Task<OrderResponse> CreateOrderAsync(Guid clientId, params CreateOrderItemRequest[] items)
         {
             var response = await _client.PostAsJsonAsync(
@@ -241,6 +262,55 @@ namespace DeuxERP.Tests
             var recipeAfterClear = await GetRecipeAsync(product.Id);
             Assert.False(recipeAfterClear.HasRecipe);
             Assert.Empty(recipeAfterClear.Items);
+        }
+
+        [Fact]
+        public async Task ProductRecipeOptions_ShouldSetGetClearAndReturnOrderOptionCatalog()
+        {
+            await AuthenticateAsync();
+            var suffix = NewSuffix();
+            var product = await CreateProductAsync(suffix, $"Naked Cake {suffix}");
+            var flour = await CreateMaterialAsync(suffix, "Farinha", 5000, 10000, MeasureUnit.G);
+            var cocoa = await CreateMaterialAsync(suffix, "Cacau", 3000, 9000, MeasureUnit.G);
+
+            var invalidResponse = await _client.PutAsJsonAsync(
+                $"/api/v1/products/{product.Id}/recipe-options",
+                new SetRecipeOptionRequest(ProductRecipeOptionType.Dough, "Chocolate", [new RecipeItemRequest(Guid.NewGuid(), 100)]));
+
+            Assert.Equal(HttpStatusCode.BadRequest, invalidResponse.StatusCode);
+
+            var setOption = await SetRecipeOptionAsync(
+                product.Id,
+                ProductRecipeOptionType.Dough,
+                "Chocolate",
+                new RecipeItemRequest(flour.Id, 500),
+                new RecipeItemRequest(cocoa.Id, 80));
+
+            Assert.True(setOption.HasRecipe);
+            Assert.Equal(ProductRecipeOptionType.Dough, setOption.Type);
+            Assert.Equal("Chocolate", setOption.Name);
+            Assert.Contains(setOption.Items, item => item.MaterialId == flour.Id && item.Quantity == 500);
+            Assert.Contains(setOption.Items, item => item.MaterialId == cocoa.Id && item.Quantity == 80);
+
+            var options = await GetRecipeOptionsAsync(product.Id);
+            var dough = Assert.Single(options.Options);
+            Assert.Equal(ProductRecipeOptionType.Dough, dough.Type);
+            Assert.Equal("Chocolate", dough.Name);
+            Assert.Equal(2, dough.Items.Count);
+
+            var catalogResponse = await _client.GetAsync($"/api/v1/products/{product.Id}/order-options");
+            catalogResponse.EnsureSuccessStatusCode();
+            var catalog = (await catalogResponse.Content.ReadFromJsonAsync<ProductOrderRecipeOptionsResponse>(JsonOptions))!;
+            Assert.Contains("Baunilha", catalog.CakeDoughs);
+            Assert.Contains("cream cheese frosting", catalog.CakeFillings);
+            Assert.Contains("casadinho", catalog.BrigadeiroFlavors);
+            Assert.Contains("brookie", catalog.CookieFlavors);
+
+            var cleared = await SetRecipeOptionAsync(product.Id, ProductRecipeOptionType.Dough, "Chocolate");
+            Assert.False(cleared.HasRecipe);
+
+            var optionsAfterClear = await GetRecipeOptionsAsync(product.Id);
+            Assert.Empty(optionsAfterClear.Options);
         }
 
         [Fact]

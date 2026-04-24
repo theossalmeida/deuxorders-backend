@@ -53,6 +53,8 @@ namespace DeuxERP.Infrastructure.Data
         public DbSet<CashFlowAuditLog> CashFlowAuditLogs { get; set; }
         public DbSet<InventoryMaterial> InventoryMaterials { get; set; }
         public DbSet<ProductRecipeItem> ProductRecipeItems { get; set; }
+        public DbSet<ProductRecipeOption> ProductRecipeOptions { get; set; }
+        public DbSet<ProductRecipeOptionItem> ProductRecipeOptionItems { get; set; }
         public DbSet<OrderReferenceUpload> OrderReferenceUploads { get; set; }
         public DbSet<PushSubscription> PushSubscriptions { get; set; }
         public DbSet<DailyReminderLog> DailyReminderLogs { get; set; }
@@ -182,6 +184,37 @@ namespace DeuxERP.Infrastructure.Data
                       .HasForeignKey(e => e.ProductId)
                       .OnDelete(DeleteBehavior.Restrict)
                       .IsRequired();
+                entity.HasOne(e => e.Material)
+                      .WithMany()
+                      .HasForeignKey(e => e.MaterialId)
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired();
+            });
+
+            modelBuilder.Entity<ProductRecipeOption>(entity =>
+            {
+                entity.ToTable("product_recipe_options", "inventory");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.ProductId, e.Type, e.Name }).IsUnique();
+                entity.Property(e => e.Type).HasConversion<string>().HasMaxLength(30).IsRequired();
+                entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+                entity.HasOne(e => e.Product)
+                      .WithMany()
+                      .HasForeignKey(e => e.ProductId)
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired();
+                entity.HasMany(e => e.Items)
+                      .WithOne(i => i.RecipeOption)
+                      .HasForeignKey(i => i.RecipeOptionId)
+                      .OnDelete(DeleteBehavior.Cascade)
+                      .IsRequired();
+                entity.Navigation(e => e.Items).UsePropertyAccessMode(PropertyAccessMode.Field);
+            });
+
+            modelBuilder.Entity<ProductRecipeOptionItem>(entity =>
+            {
+                entity.ToTable("product_recipe_option_items", "inventory");
+                entity.HasKey(e => new { e.RecipeOptionId, e.MaterialId });
                 entity.HasOne(e => e.Material)
                       .WithMany()
                       .HasForeignKey(e => e.MaterialId)
