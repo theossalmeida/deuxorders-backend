@@ -27,6 +27,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
 
+var runMigrationsOnly = args.Contains("--migrate", StringComparer.OrdinalIgnoreCase);
 var runMode = Environment.GetEnvironmentVariable("RUN_MODE") ?? "PROD";
 var isDevMode = runMode == "DEV";
 
@@ -255,6 +256,12 @@ builder.Services.AddRateLimiter(options =>
 // Application builder
 var app = builder.Build();
 
+if (runMigrationsOnly)
+{
+    ApplyDatabaseMigrations(app.Services);
+    return;
+}
+
 app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
@@ -289,7 +296,14 @@ app.MapControllers();
 
 if (builder.Configuration.GetValue("Database:RunMigrationsAtStartup", isDevMode))
 {
-    using var scope = app.Services.CreateScope();
+    ApplyDatabaseMigrations(app.Services);
+}
+
+app.Run();
+
+static void ApplyDatabaseMigrations(IServiceProvider serviceProvider)
+{
+    using var scope = serviceProvider.CreateScope();
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<ApplicationDbContext>();
 
@@ -306,8 +320,6 @@ if (builder.Configuration.GetValue("Database:RunMigrationsAtStartup", isDevMode)
         throw;
     }
 }
-
-app.Run();
 
 static bool GetConfigurationFlag(IConfiguration configuration, string key, string environmentKey)
 {

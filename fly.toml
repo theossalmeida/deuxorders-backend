@@ -9,6 +9,9 @@ primary_region = 'gru'
 [build]
   dockerfile = 'Dockerfile'
 
+[deploy]
+  release_command = 'dotnet DeuxERP.API.dll --migrate'
+
 [http_service]
   internal_port = 8080
   auto_stop_machines = 'stop'

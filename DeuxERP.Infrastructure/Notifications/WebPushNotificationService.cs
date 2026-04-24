@@ -112,7 +112,7 @@ public sealed class WebPushNotificationService : IPushNotificationService
             {
                 var message = new PushMessage(payload)
                 {
-                    Topic = type.ToString(),
+                    Topic = GetTopic(type),
                     Urgency = GetUrgency(type),
                     TimeToLive = GetTimeToLive(type)
                 };
@@ -137,10 +137,11 @@ public sealed class WebPushNotificationService : IPushNotificationService
             {
                 _logger.LogWarning(
                     ex,
-                    "Push service rejected subscription {SubscriptionId} for user {UserId}. StatusCode: {StatusCode}.",
+                    "Push service rejected subscription {SubscriptionId} for user {UserId}. StatusCode: {StatusCode}. ResponseBody: {ResponseBody}.",
                     subscription.Id,
                     subscription.UserId,
-                    ex.StatusCode);
+                    ex.StatusCode,
+                    ex.Body);
             }
             catch (Exception ex)
             {
@@ -170,6 +171,16 @@ public sealed class WebPushNotificationService : IPushNotificationService
         type is NotificationType.DailyDueToday or NotificationType.DailyDueTomorrow
             ? PushMessageUrgency.Low
             : PushMessageUrgency.Normal;
+
+    private static string GetTopic(NotificationType type) =>
+        type switch
+        {
+            NotificationType.OrderCreated => "ordr",
+            NotificationType.ManualCashFlowCreated => "cash",
+            NotificationType.DailyDueToday => "due0",
+            NotificationType.DailyDueTomorrow => "due1",
+            _ => "deux"
+        };
 
     private static int GetTimeToLive(NotificationType type) =>
         type is NotificationType.DailyDueToday or NotificationType.DailyDueTomorrow
