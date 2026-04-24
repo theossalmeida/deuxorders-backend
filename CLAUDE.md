@@ -65,6 +65,7 @@ Clean Architecture with five projects:
 - Prices and totals are stored as `int`/`long` (integer cents) to avoid floating-point precision issues.
 - `Order` uses Guid V7 (timestamp-based); all other entities use `Guid.NewGuid()`.
 - `Order` tracks both `TotalPaid` (actual paid amount) and `TotalValue` (base price), enabling discount tracking at the item level (`PaidUnitPrice` vs `BaseUnitPrice`).
+- Order create/update intentionally accepts item prices that differ from the product catalog price. `UnitPrice`/`PaidUnitPrice` must only be non-negative; the product price remains the base price used for `TotalValue`.
 - Enums are serialized as strings globally via `JsonStringEnumConverter` — use string enum values in request/response bodies.
 
 ## Domain Entity Pattern
@@ -137,7 +138,7 @@ All routes are prefixed with `/api/v1/`. All endpoints except `POST /auth/login`
 - `POST /products/new`, `GET /products/{id}`, `PUT /products/{id}`, `DELETE /products/{id}`
 - `GET /products/all?search=&status=` — Searchable, filterable.
 - `PATCH /products/{id}/active` / `PATCH /products/{id}/inactive`
-- `GET /products/dropdown?status=` — Returns `{ id, name, price }` list for UI dropdowns.
+- `GET /products/dropdown?status=` — Returns `{ id, name, price, category, size }` list for UI dropdowns. The frontend groups duplicate product names and uses `size` to choose the concrete product variant.
 
 **Dashboard**
 - `GET /dashboard/summary?createdAtFrom=&createdAtTo=&status=` — Aggregate metrics (revenue, discounts, order counts).
