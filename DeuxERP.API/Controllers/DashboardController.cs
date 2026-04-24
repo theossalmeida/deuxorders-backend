@@ -31,46 +31,54 @@ namespace DeuxERP.API.Controllers
 
         [HttpGet("summary")]
         public async Task<IActionResult> GetSummary(
+            [FromQuery] DateTimeOffset? createdAtFrom,
+            [FromQuery] DateTimeOffset? createdAtTo,
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
             [FromQuery] OrderStatus? status)
         {
-            var (utcStart, utcEnd) = NormalizeRange(startDate, endDate);
+            var (utcStart, utcEnd) = NormalizeCreatedAtRange(createdAtFrom, createdAtTo, startDate, endDate);
             var result = await _service.GetSummaryAsync(utcStart, utcEnd, status);
             return Ok(result);
         }
 
         [HttpGet("revenue-over-time")]
         public async Task<IActionResult> GetRevenueOverTime(
+            [FromQuery] DateTimeOffset? createdAtFrom,
+            [FromQuery] DateTimeOffset? createdAtTo,
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
             [FromQuery] OrderStatus? status)
         {
-            var (utcStart, utcEnd) = NormalizeRange(startDate, endDate);
+            var (utcStart, utcEnd) = NormalizeCreatedAtRange(createdAtFrom, createdAtTo, startDate, endDate);
             var result = await _service.GetRevenueOverTimeAsync(utcStart, utcEnd, status);
             return Ok(result);
         }
 
         [HttpGet("top-products")]
         public async Task<IActionResult> GetTopProducts(
+            [FromQuery] DateTimeOffset? createdAtFrom,
+            [FromQuery] DateTimeOffset? createdAtTo,
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
             [FromQuery] OrderStatus? status,
             [FromQuery] int limit = 10)
         {
-            var (utcStart, utcEnd) = NormalizeRange(startDate, endDate);
+            var (utcStart, utcEnd) = NormalizeCreatedAtRange(createdAtFrom, createdAtTo, startDate, endDate);
             var result = await _service.GetTopProductsAsync(utcStart, utcEnd, status, limit);
             return Ok(result);
         }
 
         [HttpGet("top-clients")]
         public async Task<IActionResult> GetTopClients(
+            [FromQuery] DateTimeOffset? createdAtFrom,
+            [FromQuery] DateTimeOffset? createdAtTo,
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
             [FromQuery] OrderStatus? status,
             [FromQuery] int limit = 10)
         {
-            var (utcStart, utcEnd) = NormalizeRange(startDate, endDate);
+            var (utcStart, utcEnd) = NormalizeCreatedAtRange(createdAtFrom, createdAtTo, startDate, endDate);
             var result = await _service.GetTopClientsAsync(utcStart, utcEnd, status, limit);
             return Ok(result);
         }
@@ -83,7 +91,7 @@ namespace DeuxERP.API.Controllers
             [FromQuery] string format = "csv",
             CancellationToken ct = default)
         {
-            var (utcFrom, utcTo) = NormalizeRange(from, to);
+            var (utcFrom, utcTo) = NormalizeDateRange(from, to);
             var filename = $"pedidos_{DateTime.UtcNow:yyyyMMdd}";
             var filter = new ExportFilter(utcFrom, utcTo, status);
 
@@ -104,14 +112,26 @@ namespace DeuxERP.API.Controllers
             return new EmptyResult();
         }
 
-        private static (DateTime? Start, DateTime? End) NormalizeRange(DateTime? start, DateTime? end)
+        private static (DateTime? Start, DateTime? End) NormalizeCreatedAtRange(
+            DateTimeOffset? createdAtFrom,
+            DateTimeOffset? createdAtTo,
+            DateTime? legacyStart,
+            DateTime? legacyEnd)
+        {
+            if (createdAtFrom.HasValue || createdAtTo.HasValue)
+                return (createdAtFrom?.UtcDateTime, createdAtTo?.UtcDateTime);
+
+            return NormalizeDateRange(legacyStart, legacyEnd);
+        }
+
+        private static (DateTime? Start, DateTime? End) NormalizeDateRange(DateTime? start, DateTime? end)
         {
             var utcStart = start.HasValue
                 ? DateTime.SpecifyKind(start.Value.Date, DateTimeKind.Utc)
                 : (DateTime?)null;
 
             var utcEnd = end.HasValue
-                ? DateTime.SpecifyKind(end.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc)
+                ? DateTime.SpecifyKind(end.Value.Date.AddDays(1), DateTimeKind.Utc)
                 : (DateTime?)null;
 
             return (utcStart, utcEnd);

@@ -8,6 +8,7 @@ namespace DeuxERP.Infrastructure.Repositories
 {
     public class DashboardRepository : IDashboardRepository
     {
+        private const int BusinessTimezoneOffsetHours = -3;
         private readonly ApplicationDbContext _context;
 
         public DashboardRepository(ApplicationDbContext context)
@@ -24,7 +25,7 @@ namespace DeuxERP.Infrastructure.Repositories
                 query = query.Where(o => o.CreatedAt >= filter.StartDate.Value);
 
             if (filter.EndDate.HasValue)
-                query = query.Where(o => o.CreatedAt <= filter.EndDate.Value);
+                query = query.Where(o => o.CreatedAt < filter.EndDate.Value);
 
             if (filter.Status.HasValue)
                 query = query.Where(o => o.Status == filter.Status.Value);
@@ -51,7 +52,7 @@ namespace DeuxERP.Infrastructure.Repositories
             if (filter.StartDate.HasValue)
                 canceledQuery = canceledQuery.Where(o => o.CreatedAt >= filter.StartDate.Value);
             if (filter.EndDate.HasValue)
-                canceledQuery = canceledQuery.Where(o => o.CreatedAt <= filter.EndDate.Value);
+                canceledQuery = canceledQuery.Where(o => o.CreatedAt < filter.EndDate.Value);
             var canceledOrders = await canceledQuery.CountAsync();
 
             if (result == null)
@@ -70,17 +71,16 @@ namespace DeuxERP.Infrastructure.Repositories
         public async Task<IEnumerable<RevenueDataPointModel>> GetRevenueOverTimeAsync(DashboardFilter filter)
         {
             var rawData = await ApplyFilters(filter)
-                .GroupBy(o => o.CreatedAt.Date)
-                .Select(g => new
-                {
-                    Date = g.Key,
-                    Revenue = g.Sum(o => o.TotalPaid),
-                    OrderCount = g.Count()
-                })
-                .OrderBy(x => x.Date)
+                .Select(o => new { o.CreatedAt, o.TotalPaid })
                 .ToListAsync();
 
-            return rawData.Select(x => new RevenueDataPointModel(DateOnly.FromDateTime(x.Date), x.Revenue, x.OrderCount));
+            return rawData
+                .GroupBy(o => DateOnly.FromDateTime(o.CreatedAt.AddHours(BusinessTimezoneOffsetHours)))
+                .OrderBy(g => g.Key)
+                .Select(g => new RevenueDataPointModel(
+                    g.Key,
+                    g.Sum(o => o.TotalPaid),
+                    g.Count()));
         }
 
         public async Task<IEnumerable<TopProductModel>> GetTopProductsAsync(DashboardFilter filter, int limit)

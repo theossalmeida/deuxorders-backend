@@ -41,8 +41,7 @@ namespace DeuxERP.API.Controllers
 
             if (size > 100) size = 100;
 
-            var utcFrom = from.HasValue ? DateTime.SpecifyKind(from.Value, DateTimeKind.Utc) : (DateTime?)null;
-            var utcTo = to.HasValue ? DateTime.SpecifyKind(to.Value, DateTimeKind.Utc) : (DateTime?)null;
+            var (utcFrom, utcTo) = NormalizeBillingDateRange(from, to);
             var filter = new CashFlowFilter(utcFrom, utcTo, type, category, source, includeDeleted);
             var result = await _service.ListAsync(filter, page, size);
 
@@ -99,8 +98,7 @@ namespace DeuxERP.API.Controllers
             [FromQuery] CashFlowCategory? category,
             [FromQuery] CashFlowSource? source)
         {
-            var utcFrom = from.HasValue ? DateTime.SpecifyKind(from.Value, DateTimeKind.Utc) : (DateTime?)null;
-            var utcTo = to.HasValue ? DateTime.SpecifyKind(to.Value, DateTimeKind.Utc) : (DateTime?)null;
+            var (utcFrom, utcTo) = NormalizeBillingDateRange(from, to);
             var filter = new CashFlowFilter(utcFrom, utcTo, type, category, source);
             var summary = await _service.GetSummaryAsync(filter);
             return Ok(summary);
@@ -120,5 +118,18 @@ namespace DeuxERP.API.Controllers
                 e.AmountCents, e.Notes, e.Source.ToString(), e.SourceId,
                 e.AuthorUserId, e.AuthorUserName,
                 e.UpdatedAt, e.DeletedAt);
+
+        private static (DateTime? From, DateTime? To) NormalizeBillingDateRange(DateTime? from, DateTime? to)
+        {
+            var utcFrom = from.HasValue
+                ? DateTime.SpecifyKind(from.Value.Date, DateTimeKind.Utc)
+                : (DateTime?)null;
+
+            var utcTo = to.HasValue
+                ? DateTime.SpecifyKind(to.Value.Date.AddDays(1), DateTimeKind.Utc)
+                : (DateTime?)null;
+
+            return (utcFrom, utcTo);
+        }
     }
 }

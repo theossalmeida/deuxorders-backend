@@ -175,11 +175,24 @@ namespace DeuxERP.API.Controllers
         }
 
         [HttpGet("all")]
-        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int size = 10, [FromQuery] OrderStatus? status = null)
+        public async Task<IActionResult> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int size = 10,
+            [FromQuery] OrderStatus? status = null,
+            [FromQuery] DateTime? from = null,
+            [FromQuery] DateTime? to = null,
+            [FromQuery] string? search = null)
         {
             if (size > 100) size = 100;
 
-            var result = await _repository.GetAllAsync(page, size, status);
+            var utcFrom = from.HasValue
+                ? DateTime.SpecifyKind(from.Value.Date, DateTimeKind.Utc)
+                : (DateTime?)null;
+            var utcTo = to.HasValue
+                ? DateTime.SpecifyKind(to.Value.Date, DateTimeKind.Utc)
+                : (DateTime?)null;
+
+            var result = await _repository.GetAllAsync(page, size, status, utcFrom, utcTo, search);
 
             var dtos = result.Items.Select(order =>
                 order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", _storageService.GetSignedReadUrls(order.References))

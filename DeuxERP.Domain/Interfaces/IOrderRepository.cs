@@ -6,7 +6,13 @@ namespace DeuxERP.Domain.Interfaces
     public interface IOrderRepository
     {
         Task<Order?> GetByIdReadOnlyAsync(Guid id);
-        Task<PagedResult<Order>> GetAllAsync(int pageNumber, int pageSize, OrderStatus? status = null);
+        Task<PagedResult<Order>> GetAllAsync(
+            int pageNumber,
+            int pageSize,
+            OrderStatus? status = null,
+            DateTime? from = null,
+            DateTime? to = null,
+            string? search = null);
         Task<IEnumerable<OrderExportRow>> GetForExportAsync(ExportFilter filter);
         IAsyncEnumerable<OrderExportRow> StreamForExportAsync(ExportFilter filter, CancellationToken ct = default);
         Task<int> CountForExportAsync(ExportFilter filter, CancellationToken ct = default);
