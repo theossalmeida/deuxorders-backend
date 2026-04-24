@@ -20,5 +20,6 @@ namespace DeuxERP.Domain.Interfaces
         Task<PagedResult<Order>> GetByClientAsync(Guid clientId, int page, int size, CancellationToken ct = default);
         Task<ProductStats> GetProductStatsAsync(Guid productId, int year, int month, CancellationToken ct = default);
         Task<Dictionary<Guid, (int TotalOrders, long TotalSpent)>> GetTotalsForClientsAsync(IEnumerable<Guid> clientIds, CancellationToken ct = default);
+        Task<IReadOnlyList<OrderDueSummary>> GetDueOnDateAsync(DateOnly date, CancellationToken ct = default);
     }
 }

@@ -1,13 +1,17 @@
 ﻿using DeuxERP.API.Services;
 using DeuxERP.Application.Common;
+using DeuxERP.Application.Notifications;
 using DeuxERP.Domain.Interfaces;
 using DeuxERP.Domain.Sales.Events;
 using DeuxERP.Infrastructure.Cash.Handlers;
 using DeuxERP.Infrastructure.Data;
+using DeuxERP.Infrastructure.Notifications;
 using DeuxERP.Infrastructure.Repositories;
 using DeuxERP.Infrastructure.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Lib.Net.Http.WebPush;
+using Lib.Net.Http.WebPush.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -87,6 +91,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
 builder.Services.AddScoped<CashFlowAuditInterceptor>();
+builder.Services.AddHttpClient();
 
 builder.Services.AddOpenApi();
 
@@ -97,6 +102,74 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
     options.AddInterceptors(sp.GetRequiredService<CashFlowAuditInterceptor>());
 });
 builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
+
+var vapidSubject = builder.Configuration["VAPID_SUBJECT"] ?? "mailto:admin@deuxcerie.com.br";
+var vapidPublicKey = builder.Configuration["VAPID_PUBLIC_KEY"];
+var vapidPrivateKey = builder.Configuration["VAPID_PRIVATE_KEY"];
+var pushEnabled = GetOptionalConfigurationFlag(builder.Configuration, "Push:Enabled", "PUSH_ENABLED");
+var pushRequired = GetConfigurationFlag(builder.Configuration, "Push:Required", "PUSH_REQUIRED");
+var pushExplicitlyDisabled = pushEnabled == false && !pushRequired;
+var hasAnyVapidConfig =
+    !string.IsNullOrWhiteSpace(builder.Configuration["VAPID_SUBJECT"]) ||
+    !string.IsNullOrWhiteSpace(vapidPublicKey) ||
+    !string.IsNullOrWhiteSpace(vapidPrivateKey);
+var hasVapidKeys = !string.IsNullOrWhiteSpace(vapidPublicKey) && !string.IsNullOrWhiteSpace(vapidPrivateKey);
+var pushRequested = pushEnabled == true || pushRequired || (!pushExplicitlyDisabled && hasAnyVapidConfig);
+
+if (pushRequested && (!hasVapidKeys || string.IsNullOrWhiteSpace(vapidSubject)))
+{
+    throw new InvalidOperationException(
+        "Push notifications are enabled or partially configured, but VAPID_SUBJECT, VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are required.");
+}
+
+if (!pushExplicitlyDisabled && hasVapidKeys)
+{
+    builder.Services.AddSingleton<IPushNotificationAvailability>(
+        new PushNotificationAvailability(isAvailable: true, disabledReason: null));
+
+    builder.Services.AddOptions<VapidSettings>()
+        .Configure(settings =>
+        {
+            settings.Subject = vapidSubject;
+            settings.PublicKey = vapidPublicKey!;
+            settings.PrivateKey = vapidPrivateKey!;
+        })
+        .Validate(settings => !string.IsNullOrWhiteSpace(settings.Subject), "VAPID_SUBJECT not set")
+        .Validate(settings => !string.IsNullOrWhiteSpace(settings.PublicKey), "VAPID_PUBLIC_KEY not set")
+        .Validate(settings => !string.IsNullOrWhiteSpace(settings.PrivateKey), "VAPID_PRIVATE_KEY not set")
+        .ValidateOnStart();
+
+    builder.Services.AddSingleton(sp =>
+    {
+        var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<VapidSettings>>().Value;
+        var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+
+        return new PushServiceClient(httpClientFactory.CreateClient("WebPush"))
+        {
+            DefaultAuthentication = new VapidAuthentication(
+                publicKey: options.PublicKey,
+                privateKey: options.PrivateKey)
+            {
+                Subject = options.Subject
+            },
+            DefaultAuthenticationScheme = VapidAuthenticationScheme.Vapid,
+            AutoRetryAfter = true,
+            MaxRetriesAfter = 3
+        };
+    });
+
+    builder.Services.AddScoped<IPushNotificationService, WebPushNotificationService>();
+}
+else
+{
+    builder.Services.AddSingleton<IPushNotificationAvailability>(
+        new PushNotificationAvailability(
+            isAvailable: false,
+            disabledReason: pushExplicitlyDisabled
+                ? "Push notifications are disabled by configuration."
+                : "Push notifications are disabled because VAPID keys are not configured."));
+    builder.Services.AddSingleton<IPushNotificationService, NoOpPushNotificationService>();
+}
 
 // CORS Policy
 builder.Services.AddCors(options =>
@@ -137,6 +210,7 @@ builder.Services.AddScoped<IDomainEventHandler<OrderPaidEvent>, OrderPaidEventHa
 builder.Services.AddScoped<IDomainEventHandler<OrderPaymentReversedEvent>, OrderPaymentReversedEventHandler>();
 builder.Services.AddScoped<DeuxERP.Domain.Interfaces.ICashFlowRepository, DeuxERP.Infrastructure.Repositories.CashFlowRepository>();
 builder.Services.AddScoped<DeuxERP.Application.Services.CashFlowService>();
+builder.Services.AddHostedService<DailyOrderReminderService>();
 
 // Services config
 builder.Services.AddScoped<DeuxERP.Application.Services.OrderService>();
@@ -234,3 +308,15 @@ if (builder.Configuration.GetValue("Database:RunMigrationsAtStartup", isDevMode)
 }
 
 app.Run();
+
+static bool GetConfigurationFlag(IConfiguration configuration, string key, string environmentKey)
+{
+    var value = configuration[key] ?? configuration[environmentKey];
+    return bool.TryParse(value, out var enabled) && enabled;
+}
+
+static bool? GetOptionalConfigurationFlag(IConfiguration configuration, string key, string environmentKey)
+{
+    var value = configuration[key] ?? configuration[environmentKey];
+    return bool.TryParse(value, out var enabled) ? enabled : null;
+}

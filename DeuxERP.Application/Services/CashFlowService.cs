@@ -1,8 +1,11 @@
 using DeuxERP.Application.Common;
 using DeuxERP.Application.DTOs;
+using DeuxERP.Application.Notifications;
 using DeuxERP.Domain.Cash;
 using DeuxERP.Domain.Cash.Enums;
 using DeuxERP.Domain.Interfaces;
+using DeuxERP.Domain.Notifications;
+using Microsoft.Extensions.Logging;
 
 namespace DeuxERP.Application.Services;
 
@@ -10,11 +13,19 @@ public class CashFlowService
 {
     private readonly ICashFlowRepository _repository;
     private readonly IAppDbContext _db;
+    private readonly IPushNotificationService _push;
+    private readonly ILogger<CashFlowService> _logger;
 
-    public CashFlowService(ICashFlowRepository repository, IAppDbContext db)
+    public CashFlowService(
+        ICashFlowRepository repository,
+        IAppDbContext db,
+        IPushNotificationService push,
+        ILogger<CashFlowService> logger)
     {
         _repository = repository;
         _db = db;
+        _push = push;
+        _logger = logger;
     }
 
     public async Task<CashFlowEntry> CreateAsync(CreateCashEntryRequest req, Guid userId, string userName)
@@ -26,6 +37,7 @@ public class CashFlowService
 
         _repository.Add(entry);
         await _db.SaveChangesAsync();
+        await NotifyManualCashFlowCreatedAsync(req, entry.Id);
         return entry;
     }
 
@@ -64,4 +76,23 @@ public class CashFlowService
 
     public Task<IEnumerable<CashFlowAuditLog>> GetAuditLogAsync(Guid entryId)
         => _repository.GetAuditLogAsync(entryId);
+
+    private async Task NotifyManualCashFlowCreatedAsync(CreateCashEntryRequest req, Guid entryId)
+    {
+        try
+        {
+            await _push.SendToAllAsync(
+                NotificationType.ManualCashFlowCreated,
+                req.Type == CashFlowType.Inflow ? "Nova entrada" : "Nova saida",
+                $"{req.Counterparty} - {FormatMoney(req.AmountCents)}",
+                "/cash");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to queue manual cash flow push notification for entry {EntryId}.", entryId);
+        }
+    }
+
+    private static string FormatMoney(long amountCents) =>
+        (amountCents / 100m).ToString("C", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"));
 }
