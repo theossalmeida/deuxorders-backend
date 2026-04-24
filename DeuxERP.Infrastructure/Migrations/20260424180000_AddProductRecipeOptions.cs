@@ -1,14 +1,10 @@
 using System;
-using DeuxERP.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace DeuxERP.Infrastructure.Migrations
 {
-    [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260424180000_AddProductRecipeOptions")]
     public partial class AddProductRecipeOptions : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
