@@ -346,6 +346,78 @@ namespace DeuxERP.Tests
         }
 
         [Fact]
+        public async Task PreparingTransition_ShouldDeductInventoryFromCakeDoughAndFillings()
+        {
+            await AuthenticateAsync();
+            var suffix = NewSuffix();
+            var client = await CreateClientAsync(suffix);
+            var product = await CreateProductAsync(suffix, $"Naked Cake {suffix}");
+            var dough = await CreateMaterialAsync(suffix, "Massa Chocolate", 1000, 10000, MeasureUnit.G);
+            var brulee = await CreateMaterialAsync(suffix, "Brulee", 1000, 10000, MeasureUnit.G);
+            var doceDeLeite = await CreateMaterialAsync(suffix, "Doce de Leite", 1000, 10000, MeasureUnit.G);
+
+            await SetRecipeOptionAsync(
+                product.Id,
+                ProductRecipeOptionType.Dough,
+                "Chocolate",
+                new RecipeItemRequest(dough.Id, 100));
+            await SetRecipeOptionAsync(
+                product.Id,
+                ProductRecipeOptionType.Filling,
+                "brulee",
+                new RecipeItemRequest(brulee.Id, 30));
+            await SetRecipeOptionAsync(
+                product.Id,
+                ProductRecipeOptionType.Filling,
+                "doce de leite",
+                new RecipeItemRequest(doceDeLeite.Id, 40));
+
+            var order = await CreateOrderAsync(
+                client.Id,
+                new CreateOrderItemRequest(product.Id, 2, 2500, null, "Chocolate", "brulee|doce de leite"));
+
+            var prepareResponse = await _client.PutAsJsonAsync(
+                $"/api/v1/orders/{order.Id}",
+                new UpdateOrderRequest(null, (int)OrderStatus.Preparing, null, null));
+
+            var (_, warnings) = await ReadOrderPayloadAsync(prepareResponse);
+
+            Assert.Empty(warnings);
+            Assert.Equal(800, (await GetMaterialAsync(dough.Id)).Quantity);
+            Assert.Equal(940, (await GetMaterialAsync(brulee.Id)).Quantity);
+            Assert.Equal(920, (await GetMaterialAsync(doceDeLeite.Id)).Quantity);
+        }
+
+        [Fact]
+        public async Task PreparingTransition_ShouldDeductInventoryFromFlavorWhenNoDoughIsSelected()
+        {
+            await AuthenticateAsync();
+            var suffix = NewSuffix();
+            var client = await CreateClientAsync(suffix);
+            var product = await CreateProductAsync(suffix, $"Brigadeiro {suffix}");
+            var lemon = await CreateMaterialAsync(suffix, "Limao", 1000, 10000, MeasureUnit.G);
+
+            await SetRecipeOptionAsync(
+                product.Id,
+                ProductRecipeOptionType.Flavor,
+                "limão",
+                new RecipeItemRequest(lemon.Id, 50));
+
+            var order = await CreateOrderAsync(
+                client.Id,
+                new CreateOrderItemRequest(product.Id, 3, 1200, null, null, "limao"));
+
+            var prepareResponse = await _client.PutAsJsonAsync(
+                $"/api/v1/orders/{order.Id}",
+                new UpdateOrderRequest(null, (int)OrderStatus.Preparing, null, null));
+
+            var (_, warnings) = await ReadOrderPayloadAsync(prepareResponse);
+
+            Assert.Empty(warnings);
+            Assert.Equal(850, (await GetMaterialAsync(lemon.Id)).Quantity);
+        }
+
+        [Fact]
         public async Task PreparingTransition_ShouldReturnWarningWhenStockGoesNegative()
         {
             await AuthenticateAsync();

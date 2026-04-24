@@ -131,7 +131,7 @@ namespace DeuxERP.Application.Services
                     if (quantityDelta == 0)
                         continue;
 
-                    warnings.AddRange(await _inventoryService.AdjustForItemAsync(itemRequest.ProductId, quantityDelta));
+                    warnings.AddRange(await _inventoryService.AdjustForOrderItemAsync(updatedItem, quantityDelta));
                 }
             }
 
@@ -197,7 +197,7 @@ namespace DeuxERP.Application.Services
             order.CancelItem(productId);
 
             if (shouldRestoreInventory)
-                await _inventoryService.AdjustForItemAsync(productId, -item.Quantity);
+                await _inventoryService.AdjustForOrderItemAsync(item, -item.Quantity);
 
             await _db.SaveChangesAsync();
             return order;
@@ -209,7 +209,10 @@ namespace DeuxERP.Application.Services
 
             var warnings = new List<string>();
             if (order.Status == OrderStatus.Preparing || order.Status == OrderStatus.WaitingPickupOrDelivery)
-                warnings = await _inventoryService.AdjustForItemAsync(productId, increment);
+            {
+                var item = order.Items.First(orderItem => orderItem.ProductId == productId);
+                warnings = await _inventoryService.AdjustForOrderItemAsync(item, increment);
+            }
 
             await _db.SaveChangesAsync();
             return (order, warnings);
