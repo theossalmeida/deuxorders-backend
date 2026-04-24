@@ -207,16 +207,19 @@ public class ClientController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Administrator")]
     public async Task<IActionResult> DeleteClient(Guid id)
     {
         try
         {
-            var rowsAffected = await _db.Clients
-                .Where(client => client.Id == id)
-                .ExecuteDeleteAsync();
+            var client = await _db.Clients.FirstOrDefaultAsync(currentClient => currentClient.Id == id);
 
-            if (rowsAffected == 0)
+            if (client == null)
                 return NotFound(new { Message = "Cliente não encontrado." });
+
+            _db.Clients.Remove(client);
+            if (await _db.SaveChangesAsync() == 0)
+                return BadRequest(new { Message = "Falha ao deletar o cliente." });
 
             return NoContent();
         }

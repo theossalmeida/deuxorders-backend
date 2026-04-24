@@ -14,6 +14,7 @@ namespace DeuxERP.API.Controllers
     public class DashboardController : ControllerBase
     {
         private const int MaxPdfExportRows = 2000;
+        private const int MaxCsvExportRows = 10000;
         private readonly DashboardService _service;
         private readonly IOrderRepository _repository;
         private readonly ExportService _exportService;
@@ -94,17 +95,20 @@ namespace DeuxERP.API.Controllers
             var (utcFrom, utcTo) = NormalizeDateRange(from, to);
             var filename = $"pedidos_{DateTime.UtcNow:yyyyMMdd}";
             var filter = new ExportFilter(utcFrom, utcTo, status);
+            var rowCount = await _repository.CountForExportAsync(filter, ct);
 
             if (format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
             {
-                var rowCount = await _repository.CountForExportAsync(filter, ct);
                 if (rowCount > MaxPdfExportRows)
                     return BadRequest($"PDF limitado a {MaxPdfExportRows} linhas. Use CSV ou reduza o intervalo.");
 
-                var rows = await _repository.GetForExportAsync(filter);
+                var rows = await _repository.GetForExportAsync(filter, ct);
                 var pdf = _exportService.GeneratePdf(rows);
                 return File(pdf, "application/pdf", $"{filename}.pdf");
             }
+
+            if (rowCount > MaxCsvExportRows)
+                return BadRequest($"CSV limitado a {MaxCsvExportRows} linhas. Reduza o intervalo.");
 
             Response.ContentType = "text/csv; charset=utf-8";
             Response.Headers["Content-Disposition"] = $"attachment; filename=\"{filename}.csv\"";
@@ -127,14 +131,23 @@ namespace DeuxERP.API.Controllers
         private static (DateTime? Start, DateTime? End) NormalizeDateRange(DateTime? start, DateTime? end)
         {
             var utcStart = start.HasValue
-                ? DateTime.SpecifyKind(start.Value.Date, DateTimeKind.Utc)
+                ? NormalizeDateBoundary(start.Value, false)
                 : (DateTime?)null;
 
             var utcEnd = end.HasValue
-                ? DateTime.SpecifyKind(end.Value.Date.AddDays(1), DateTimeKind.Utc)
+                ? NormalizeDateBoundary(end.Value, true)
                 : (DateTime?)null;
 
             return (utcStart, utcEnd);
+        }
+
+        private static DateTime NormalizeDateBoundary(DateTime value, bool exclusiveEnd)
+        {
+            if (value.Kind != DateTimeKind.Unspecified)
+                return value.ToUniversalTime();
+
+            var date = exclusiveEnd ? value.Date.AddDays(1) : value.Date;
+            return DateTime.SpecifyKind(date, DateTimeKind.Utc);
         }
     }
 }

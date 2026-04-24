@@ -122,14 +122,23 @@ namespace DeuxERP.API.Controllers
         private static (DateTime? From, DateTime? To) NormalizeBillingDateRange(DateTime? from, DateTime? to)
         {
             var utcFrom = from.HasValue
-                ? DateTime.SpecifyKind(from.Value.Date, DateTimeKind.Utc)
+                ? NormalizeDateBoundary(from.Value, false)
                 : (DateTime?)null;
 
             var utcTo = to.HasValue
-                ? DateTime.SpecifyKind(to.Value.Date.AddDays(1), DateTimeKind.Utc)
+                ? NormalizeDateBoundary(to.Value, true)
                 : (DateTime?)null;
 
             return (utcFrom, utcTo);
+        }
+
+        private static DateTime NormalizeDateBoundary(DateTime value, bool exclusiveEnd)
+        {
+            if (value.Kind != DateTimeKind.Unspecified)
+                return value.ToUniversalTime();
+
+            var date = exclusiveEnd ? value.Date.AddDays(1) : value.Date;
+            return DateTime.SpecifyKind(date, DateTimeKind.Utc);
         }
     }
 }

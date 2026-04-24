@@ -71,16 +71,21 @@ namespace DeuxERP.Infrastructure.Repositories
         public async Task<IEnumerable<RevenueDataPointModel>> GetRevenueOverTimeAsync(DashboardFilter filter)
         {
             var rawData = await ApplyFilters(filter)
-                .Select(o => new { o.CreatedAt, o.TotalPaid })
+                .GroupBy(o => o.CreatedAt.AddHours(BusinessTimezoneOffsetHours).Date)
+                .Select(g => new
+                {
+                    Date = g.Key,
+                    Revenue = g.Sum(o => o.TotalPaid),
+                    OrderCount = g.Count()
+                })
+                .OrderBy(x => x.Date)
                 .ToListAsync();
 
             return rawData
-                .GroupBy(o => DateOnly.FromDateTime(o.CreatedAt.AddHours(BusinessTimezoneOffsetHours)))
-                .OrderBy(g => g.Key)
-                .Select(g => new RevenueDataPointModel(
-                    g.Key,
-                    g.Sum(o => o.TotalPaid),
-                    g.Count()));
+                .Select(x => new RevenueDataPointModel(
+                    DateOnly.FromDateTime(x.Date),
+                    x.Revenue,
+                    x.OrderCount));
         }
 
         public async Task<IEnumerable<TopProductModel>> GetTopProductsAsync(DashboardFilter filter, int limit)

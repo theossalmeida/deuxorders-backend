@@ -59,7 +59,7 @@ public class ProductController : ControllerBase
 
         _db.Products.Add(product);
 
-        if (await _db.SaveChangesAsync() == 0)
+        if (await SaveProductChangesOrCleanupAsync(uploadedObjectKey, "create commit exception") == 0)
         {
             if (uploadedObjectKey != null)
             {
@@ -106,7 +106,7 @@ public class ProductController : ControllerBase
         var oldObjectKey = product.Image;
         product.Update(request.Name, request.Price, request.Description, newObjectKey ?? product.Image, request.Category, request.Size);
 
-        if (await _db.SaveChangesAsync() == 0)
+        if (await SaveProductChangesOrCleanupAsync(newObjectKey, "update commit exception") == 0)
         {
             if (newObjectKey != null)
             {
@@ -402,39 +402,55 @@ public class ProductController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Administrator")]
     public async Task<IActionResult> DeleteProduct(Guid id)
     {
         try
         {
             var product = await _db.Products
-                .AsNoTracking()
                 .FirstOrDefaultAsync(currentProduct => currentProduct.Id == id);
             if (product == null) return NotFound(new { Message = "Produto não encontrado." });
 
-            var objectKey = product.Image;
-            var rowsAffected = await _db.Products
-                .Where(currentProduct => currentProduct.Id == id)
-                .ExecuteDeleteAsync();
+            if (product.Image != null)
+                return BadRequest(new { Message = "Remova a imagem do produto antes de deletar o cadastro." });
 
-            if (rowsAffected == 0) return NotFound(new { Message = "Produto não encontrado." });
-
-            if (objectKey != null)
-            {
-                try
-                {
-                    await _storageService.DeleteObjectAsync(objectKey);
-                }
-                catch
-                {
-                    return StatusCode(StatusCodes.Status502BadGateway, new { Message = "Produto removido do banco, mas a imagem não pôde ser removida do armazenamento." });
-                }
-            }
+            _db.Products.Remove(product);
+            if (await _db.SaveChangesAsync() == 0)
+                return BadRequest(new { Message = "Falha ao deletar o produto." });
 
             return NoContent();
         }
         catch
         {
             return BadRequest(new { Message = "Não é possível deletar este produto pois ele pertence a um pedido existente." });
+        }
+    }
+
+    private async Task<int> SaveProductChangesOrCleanupAsync(string? uploadedObjectKey, string reason)
+    {
+        try
+        {
+            return await _db.SaveChangesAsync();
+        }
+        catch
+        {
+            await CleanupUploadedImageAsync(uploadedObjectKey, reason);
+            throw;
+        }
+    }
+
+    private async Task CleanupUploadedImageAsync(string? objectKey, string reason)
+    {
+        if (objectKey == null)
+            return;
+
+        try
+        {
+            await _storageService.DeleteObjectAsync(objectKey);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogCritical(ex, "Failed to cleanup product image {ObjectKey} after {Reason}.", objectKey, reason);
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace DeuxERP.API.Services
+using DeuxERP.Domain.Storage;
+
+namespace DeuxERP.API.Services
 {
     public static class FileValidation
     {
@@ -16,5 +18,8 @@
 
         public static bool IsAllowedImage(IFormFile file)
             => IsAllowedImage(file.FileName, file.ContentType);
+
+        public static bool IsValidOrderReferenceKey(string objectKey)
+            => OrderReferenceObjectKey.IsValid(objectKey);
     }
 }

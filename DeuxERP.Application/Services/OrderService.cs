@@ -1,6 +1,7 @@
 using DeuxERP.Application.Common;
 using DeuxERP.Application.DTOs;
 using DeuxERP.Domain.Sales;
+using DeuxERP.Domain.Storage;
 using Microsoft.EntityFrameworkCore;
 
 namespace DeuxERP.Application.Services
@@ -47,7 +48,10 @@ namespace DeuxERP.Application.Services
             }
 
             if (request.References != null)
+            {
+                await ValidateAndConsumeReferenceUploadsAsync(request.References, order.Id);
                 order.SetReferences(request.References);
+            }
 
             _db.Orders.Add(order);
             await _db.SaveChangesAsync();
@@ -134,7 +138,10 @@ namespace DeuxERP.Application.Services
             }
 
             if (request.References != null)
+            {
+                await ValidateAndConsumeReferenceUploadsAsync(request.References, order.Id);
                 order.AppendReferences(request.References);
+            }
 
             await _db.SaveChangesAsync();
 
@@ -218,6 +225,35 @@ namespace DeuxERP.Application.Services
                 .Include(order => order.Items)
                     .ThenInclude(item => item.Product)
                 .FirstOrDefaultAsync(order => order.Id == id);
+        }
+
+        private async Task ValidateAndConsumeReferenceUploadsAsync(List<string> references, Guid orderId)
+        {
+            if (references.Count == 0)
+                return;
+
+            if (references.Count != references.Distinct(StringComparer.Ordinal).Count())
+                throw new InvalidOperationException("Referências duplicadas não são permitidas.");
+
+            if (references.Any(reference => !OrderReferenceObjectKey.IsValid(reference)))
+                throw new InvalidOperationException("Uma ou mais referências possuem chave de arquivo inválida.");
+
+            var now = DateTime.UtcNow;
+            var sessions = await _db.OrderReferenceUploads
+                .Where(upload => references.Contains(upload.ObjectKey))
+                .ToListAsync();
+
+            var sessionsByKey = sessions.ToDictionary(upload => upload.ObjectKey, StringComparer.Ordinal);
+            foreach (var reference in references)
+            {
+                if (!sessionsByKey.TryGetValue(reference, out var session))
+                    throw new InvalidOperationException("Referência enviada sem sessão de upload válida.");
+
+                if (session.UserId != _currentUser.UserId)
+                    throw new InvalidOperationException("Referência enviada pertence a outro usuário.");
+
+                session.Consume(orderId, now);
+            }
         }
     }
 }

@@ -13,7 +13,7 @@ namespace DeuxERP.Domain.Interfaces
             DateTime? from = null,
             DateTime? to = null,
             string? search = null);
-        Task<IEnumerable<OrderExportRow>> GetForExportAsync(ExportFilter filter);
+        Task<IEnumerable<OrderExportRow>> GetForExportAsync(ExportFilter filter, CancellationToken ct = default);
         IAsyncEnumerable<OrderExportRow> StreamForExportAsync(ExportFilter filter, CancellationToken ct = default);
         Task<int> CountForExportAsync(ExportFilter filter, CancellationToken ct = default);
         Task<ClientStats> GetClientStatsAsync(Guid clientId, CancellationToken ct = default);

@@ -12,7 +12,10 @@ namespace DeuxERP.API.Services
         private readonly string _publicBaseUrl;
         private const string Region = "auto";
         private const string Service = "s3";
-        private static readonly HttpClient _httpClient = new();
+        private static readonly HttpClient _httpClient = new()
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
 
         public StorageService(IConfiguration configuration)
         {
@@ -27,10 +30,10 @@ namespace DeuxERP.API.Services
         public string GetPublicUrl(string objectKey)
             => $"{_publicBaseUrl}/{objectKey}";
 
-        public async Task<string> UploadFileAsync(Stream stream, string objectKey, string contentType)
+        public async Task<string> UploadFileAsync(Stream stream, string objectKey, string contentType, CancellationToken ct = default)
         {
             var bytes = new byte[stream.Length];
-            await stream.ReadExactlyAsync(bytes);
+            await stream.ReadExactlyAsync(bytes, ct);
 
             var now = DateTime.UtcNow;
             var dateStamp = now.ToString("yyyyMMdd");
@@ -66,7 +69,7 @@ namespace DeuxERP.API.Services
             request.Content = new ByteArrayContent(bytes);
             request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
 
-            using var response = await _httpClient.SendAsync(request);
+            using var response = await _httpClient.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException("Falha ao fazer upload da imagem. Tente novamente mais tarde.");
@@ -84,7 +87,7 @@ namespace DeuxERP.API.Services
             return objectKeys.Select(k => BuildPresignedUrl("GET", k, null, expiresInSeconds: 3600)).ToList();
         }
 
-        public async Task DeleteObjectAsync(string objectKey)
+        public async Task DeleteObjectAsync(string objectKey, CancellationToken ct = default)
         {
             var now = DateTime.UtcNow;
             var dateStamp = now.ToString("yyyyMMdd");
@@ -118,7 +121,7 @@ namespace DeuxERP.API.Services
             request.Headers.TryAddWithoutValidation("x-amz-content-sha256", payloadHash);
             request.Headers.TryAddWithoutValidation("x-amz-date", amzDate);
 
-            using var response = await _httpClient.SendAsync(request);
+            using var response = await _httpClient.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException("Falha ao remover o arquivo. Tente novamente mais tarde.");

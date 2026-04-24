@@ -4,7 +4,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
 
 namespace DeuxERP.Infrastructure.Services
 {
@@ -16,7 +15,7 @@ namespace DeuxERP.Infrastructure.Services
         {
             var secret = configuration.GetValue<string>("JwtSettings:Secret")
                 ?? throw new InvalidOperationException("JWT Secret não configurada.");
-            _key = Encoding.ASCII.GetBytes(secret);
+            _key = JwtSigningKey.FromSecret(secret);
         }
 
         public string GenerateToken(User user)

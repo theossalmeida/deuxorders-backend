@@ -39,6 +39,7 @@ namespace DeuxERP.Tests
             var productForm = new MultipartFormDataContent();
             productForm.Add(new StringContent("Produto Teste"), "Name");
             productForm.Add(new StringContent("1000"), "Price");
+            productForm.Add(new StringContent("M"), "Size");
             var productRes = await _client.PostAsync("/api/v1/products/new", productForm);
             productRes.EnsureSuccessStatusCode();
             var product = (await productRes.Content.ReadFromJsonAsync<ProductResponse>(JsonOptions))!;
@@ -61,6 +62,7 @@ namespace DeuxERP.Tests
             Assert.Equal(5000, order1.TotalValue);
             Assert.Single(order1.Items);
             Assert.Equal(5, order1.Items.First().Quantity);
+            Assert.Equal("M", order1.Items.First().ProductSize);
 
             var allOrdersRes = await _client.GetAsync("/api/v1/orders/all");
             allOrdersRes.EnsureSuccessStatusCode();
@@ -68,6 +70,7 @@ namespace DeuxERP.Tests
             var fetched = paged.Items.First(o => o.Id == order1.Id);
             Assert.Equal("Cliente Teste Flow", fetched.ClientName);
             Assert.Equal("Produto Teste", fetched.Items.First().ProductName);
+            Assert.Equal("M", fetched.Items.First().ProductSize);
 
             var updateOk = await _client.PatchAsJsonAsync(
                 $"/api/v1/orders/{order1.Id}/items/{product.Id}/quantity", new { Increment = 2 });
@@ -75,6 +78,7 @@ namespace DeuxERP.Tests
 
             var afterIncrement = await GetOrderAsync(order1.Id);
             Assert.Equal(7, afterIncrement.Items.First().Quantity);
+            Assert.Equal("M", afterIncrement.Items.First().ProductSize);
             Assert.Equal(7000, afterIncrement.TotalPaid);
             Assert.Equal(7000, afterIncrement.TotalValue);
 

@@ -23,13 +23,16 @@ public sealed class CashFlowAuditInterceptor : SaveChangesInterceptor
         if (eventData.Context is null)
             return new ValueTask<InterceptionResult<int>>(result);
 
-        var userId = _currentUser.UserId;
-        var userName = _currentUser.UserName;
-
         var entries = eventData.Context.ChangeTracker
             .Entries<CashFlowEntry>()
             .Where(e => e.State is EntityState.Added or EntityState.Modified)
             .ToList();
+
+        if (entries.Count == 0)
+            return new ValueTask<InterceptionResult<int>>(result);
+
+        var userId = _currentUser.UserId;
+        var userName = _currentUser.UserName;
 
         foreach (var entry in entries)
         {

@@ -19,6 +19,19 @@ namespace DeuxERP.API.Middlewares
             CancellationToken cancellationToken)
         {
             _logger.LogError(exception, "Unhandled exception: {ExceptionType} — {Message}", exception.GetType().Name, exception.Message);
+            if (exception is UnauthorizedAccessException)
+            {
+                httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await httpContext.Response.WriteAsJsonAsync(new ProblemDetails
+                {
+                    Status = StatusCodes.Status401Unauthorized,
+                    Title = "Token Inválido",
+                    Detail = exception.Message
+                }, cancellationToken);
+
+                return true;
+            }
+
             if (exception is InvalidOperationException or ArgumentException)
             {
                 httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;

@@ -133,9 +133,22 @@ namespace DeuxERP.API.Services
             _ => status.ToString()
         };
 
-        private static string Escape(string value) =>
-            value.Contains(',') || value.Contains('"') || value.Contains('\n')
-                ? $"\"{value.Replace("\"", "\"\"")}\""
+        private static string Escape(string value)
+        {
+            var neutralized = NeutralizeFormula(value);
+            return neutralized.Contains(',') || neutralized.Contains('"') || neutralized.Contains('\n') || neutralized.Contains('\r')
+                ? $"\"{neutralized.Replace("\"", "\"\"")}\""
+                : neutralized;
+        }
+
+        private static string NeutralizeFormula(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return value;
+
+            return value[0] is '=' or '+' or '-' or '@' or '\t' or '\r'
+                ? $"'{value}"
                 : value;
+        }
     }
 }

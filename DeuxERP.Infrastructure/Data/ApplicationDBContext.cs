@@ -5,6 +5,7 @@ using DeuxERP.Domain.Identity;
 using DeuxERP.Domain.Inventory;
 using DeuxERP.Domain.Payments;
 using DeuxERP.Domain.Sales;
+using DeuxERP.Domain.Storage;
 using Microsoft.EntityFrameworkCore;
 
 namespace DeuxERP.Infrastructure.Data
@@ -29,13 +30,13 @@ namespace DeuxERP.Infrastructure.Data
 
             var events = entitiesWithEvents.SelectMany(e => e.DomainEvents).ToList();
 
-            var result = await base.SaveChangesAsync(cancellationToken);
-
             foreach (var entity in entitiesWithEvents)
                 entity.ClearDomainEvents();
 
             if (events.Count > 0)
                 await _dispatcher.Dispatch(events, cancellationToken);
+
+            var result = await base.SaveChangesAsync(cancellationToken);
 
             return result;
         }
@@ -51,9 +52,12 @@ namespace DeuxERP.Infrastructure.Data
         public DbSet<CashFlowAuditLog> CashFlowAuditLogs { get; set; }
         public DbSet<InventoryMaterial> InventoryMaterials { get; set; }
         public DbSet<ProductRecipeItem> ProductRecipeItems { get; set; }
+        public DbSet<OrderReferenceUpload> OrderReferenceUploads { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.HasPostgresExtension("pg_trgm");
+
             modelBuilder.Entity<User>(entity =>
             {
                 entity.ToTable("users");
@@ -70,6 +74,7 @@ namespace DeuxERP.Infrastructure.Data
             {
                 entity.ToTable("clients");
                 entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.Name).HasDatabaseName("IX_clients_Name_trgm").HasMethod("gin").HasOperators("gin_trgm_ops");
                 entity.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
             });
 
@@ -77,6 +82,10 @@ namespace DeuxERP.Infrastructure.Data
             {
                 entity.ToTable("orders");
                 entity.HasKey(o => o.Id);
+                entity.HasIndex(o => o.CreatedAt).IsDescending();
+                entity.HasIndex(o => o.DeliveryDate);
+                entity.HasIndex(o => new { o.Status, o.CreatedAt }).IsDescending(false, true);
+                entity.HasIndex(o => new { o.ClientId, o.CreatedAt }).IsDescending(false, true);
                 entity.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
                 entity.HasOne(o => o.Client)
                       .WithMany()
@@ -93,6 +102,16 @@ namespace DeuxERP.Infrastructure.Data
                 entity.Property(o => o.PaymentSource).HasMaxLength(20).IsRequired(false);
                 entity.Property(o => o.DeliveryAddress).HasMaxLength(500).IsRequired(false);
                 entity.Property(o => o.PaidByUserName).HasMaxLength(200).IsRequired(false);
+            });
+
+            modelBuilder.Entity<OrderReferenceUpload>(entity =>
+            {
+                entity.ToTable("order_reference_uploads");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.ObjectKey).IsUnique();
+                entity.HasIndex(e => new { e.UserId, e.OrderId, e.ConsumedAt });
+                entity.Property(e => e.ObjectKey).HasMaxLength(200).IsRequired();
+                entity.Property(e => e.ContentType).HasMaxLength(100).IsRequired();
             });
 
             modelBuilder.Entity<OrderItem>(entity =>
@@ -119,6 +138,7 @@ namespace DeuxERP.Infrastructure.Data
             {
                 entity.ToTable("inventory_materials", "inventory");
                 entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.Name).HasDatabaseName("IX_inventory_materials_Name_trgm").HasMethod("gin").HasOperators("gin_trgm_ops");
                 entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
                 entity.Property(e => e.Status).HasDefaultValue(true);
                 entity.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid")
@@ -145,6 +165,7 @@ namespace DeuxERP.Infrastructure.Data
             {
                 entity.ToTable("products");
                 entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.Name).HasDatabaseName("IX_products_Name_trgm").HasMethod("gin").HasOperators("gin_trgm_ops");
                 entity.Property(p => p.AbacateStoreProductId).HasMaxLength(100).IsRequired(false);
                 entity.Property(p => p.HasRecipe).HasDefaultValue(false);
                 entity.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();

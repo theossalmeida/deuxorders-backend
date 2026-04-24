@@ -140,7 +140,7 @@ namespace DeuxERP.Infrastructure.Repositories
             return stats ?? new ClientStats(0, 0, null);
         }
 
-        public async Task<IEnumerable<OrderExportRow>> GetForExportAsync(ExportFilter filter)
+        public async Task<IEnumerable<OrderExportRow>> GetForExportAsync(ExportFilter filter, CancellationToken ct = default)
         {
             var query = _context.Orders.AsNoTracking();
 
@@ -167,7 +167,7 @@ namespace DeuxERP.Infrastructure.Repositories
                         i.PaidUnitPrice,
                         i.TotalPaid
                     )))
-                .ToListAsync();
+                .ToListAsync(ct);
         }
 
         public IAsyncEnumerable<OrderExportRow> StreamForExportAsync(ExportFilter filter, CancellationToken ct = default)

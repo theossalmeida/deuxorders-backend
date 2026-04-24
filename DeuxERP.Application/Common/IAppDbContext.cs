@@ -3,6 +3,7 @@ using DeuxERP.Domain.Identity;
 using DeuxERP.Domain.Inventory;
 using DeuxERP.Domain.Payments;
 using DeuxERP.Domain.Sales;
+using DeuxERP.Domain.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
@@ -21,6 +22,7 @@ public interface IAppDbContext
     DbSet<CashFlowAuditLog> CashFlowAuditLogs { get; }
     DbSet<InventoryMaterial> InventoryMaterials { get; }
     DbSet<ProductRecipeItem> ProductRecipeItems { get; }
+    DbSet<OrderReferenceUpload> OrderReferenceUploads { get; }
     DatabaseFacade Database { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

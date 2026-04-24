@@ -5,11 +5,12 @@ using DeuxERP.Application.Mapping;
 using DeuxERP.Application.Services;
 using DeuxERP.Domain.Interfaces;
 using DeuxERP.Domain.Sales;
+using DeuxERP.Domain.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-public record PresignedUploadRequest(string FileName, string ContentType);
+public record PresignedUploadRequest(string FileName, string ContentType, Guid? OrderId);
 public record RemoveReferenceRequest(string ObjectKey);
 public record UnpayRequest(string Reason);
 
@@ -24,6 +25,7 @@ namespace DeuxERP.API.Controllers
         private readonly IOrderRepository _repository;
         private readonly OrderService _orderService;
         private readonly IStorageService _storageService;
+        private readonly ICurrentUserAccessor _currentUser;
         private readonly ILogger<OrderController> _logger;
 
         public OrderController(
@@ -31,12 +33,14 @@ namespace DeuxERP.API.Controllers
             IOrderRepository repository,
             OrderService orderService,
             IStorageService storageService,
+            ICurrentUserAccessor currentUser,
             ILogger<OrderController> logger)
         {
             _db = db;
             _repository = repository;
             _orderService = orderService;
             _storageService = storageService;
+            _currentUser = currentUser;
             _logger = logger;
         }
 
@@ -72,14 +76,23 @@ namespace DeuxERP.API.Controllers
         }
 
         [HttpPost("references/presigned-url")]
-        public IActionResult GetPresignedUploadUrl([FromBody] PresignedUploadRequest request)
+        public async Task<IActionResult> GetPresignedUploadUrl([FromBody] PresignedUploadRequest request)
         {
             if (!FileValidation.IsAllowedImage(request.FileName, request.ContentType))
                 return BadRequest("Tipo de arquivo não permitido. Use JPG, PNG ou WebP.");
 
             var extension = Path.GetExtension(request.FileName);
-            var objectKey = $"order-references/{Guid.NewGuid()}{extension}";
+            var objectKey = $"{OrderReferenceObjectKey.Prefix}{Guid.NewGuid()}{extension}";
             var uploadUrl = _storageService.GeneratePresignedUploadUrl(objectKey, request.ContentType);
+            var session = new OrderReferenceUpload(
+                objectKey,
+                _currentUser.UserId,
+                request.OrderId,
+                request.ContentType,
+                DateTime.UtcNow.AddMinutes(15));
+
+            _db.OrderReferenceUploads.Add(session);
+            await _db.SaveChangesAsync();
 
             return Ok(new { uploadUrl, objectKey });
         }
@@ -88,17 +101,26 @@ namespace DeuxERP.API.Controllers
         public async Task<IActionResult> Create([FromBody] CreateOrderRequest request)
         {
             var order = await _orderService.CreateOrderAsync(request);
-            var signedUrls = _storageService.GetSignedReadUrls(order.References);
+            var responseOrder = await _repository.GetByIdReadOnlyAsync(order.Id);
+            if (responseOrder == null)
+                return StatusCode(StatusCodes.Status500InternalServerError, "Pedido criado, mas não foi possível recarregar os detalhes.");
 
-            return CreatedAtAction(nameof(GetById), new { id = order.Id }, order.ToResponse(signedReferenceUrls: signedUrls));
+            var signedUrls = _storageService.GetSignedReadUrls(responseOrder.References);
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = responseOrder.Id },
+                responseOrder.ToResponse(responseOrder.Client?.Name ?? string.Empty, signedUrls));
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateOrderRequest request)
         {
             var (order, warnings) = await _orderService.UpdateOrderAsync(id, request);
-            var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            var response = order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls);
+            var responseOrder = await _repository.GetByIdReadOnlyAsync(order.Id);
+            if (responseOrder == null) return NotFound();
+
+            var signedUrls = _storageService.GetSignedReadUrls(responseOrder.References);
+            var response = responseOrder.ToResponse(responseOrder.Client?.Name ?? "Cliente não encontrado", signedUrls);
 
             if (warnings.Count > 0)
                 return Ok(new { response, warnings });
@@ -234,14 +256,16 @@ namespace DeuxERP.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> DeleteOrder(Guid id)
         {
-            var rowsAffected = await _db.Orders
-                .Where(order => order.Id == id)
-                .ExecuteDeleteAsync();
+            var order = await _orderService.LoadTrackedOrderAsync(id);
 
-            if (rowsAffected == 0)
+            if (order == null)
                 return NotFound(new { Message = "Pedido não encontrado." });
+
+            if (order.Status != OrderStatus.Canceled)
+                await _orderService.CancelAsync(order);
 
             return NoContent();
         }

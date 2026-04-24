@@ -14,7 +14,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using QuestPDF.Infrastructure;
 using System.Net;
-using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 
@@ -30,7 +29,7 @@ var isDevMode = runMode == "DEV";
 var secret = builder.Configuration.GetValue<string>("JwtSettings:Secret")
              ?? throw new Exception("JWT Secret não encontrada!");
 
-var key = Encoding.ASCII.GetBytes(secret);
+var key = JwtSigningKey.FromSecret(secret);
 
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -214,14 +213,15 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-using (var scope = app.Services.CreateScope())
+if (builder.Configuration.GetValue("Database:RunMigrationsAtStartup", isDevMode))
 {
+    using var scope = app.Services.CreateScope();
     var services = scope.ServiceProvider;
+    var context = services.GetRequiredService<ApplicationDbContext>();
+
+    Console.WriteLine(">>> Verificando conectividade e rodando migrations...");
     try
     {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-
-        Console.WriteLine(">>> Verificando conectividade e rodando migrations...");
         context.Database.Migrate();
         Console.WriteLine(">>> Migrations executadas com sucesso!");
     }
@@ -229,6 +229,7 @@ using (var scope = app.Services.CreateScope())
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "ERRO CRÍTICO: Falha ao conectar no banco ou rodar migrations. Verifique Security Groups e ConnectionString.");
+        throw;
     }
 }
 

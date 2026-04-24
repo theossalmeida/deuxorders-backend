@@ -15,10 +15,22 @@ public sealed class CurrentUserAccessor : ICurrentUserAccessor
         get
         {
             var claim = _httpContextAccessor.HttpContext?.User.FindFirst("id")?.Value;
-            return claim != null && Guid.TryParse(claim, out var id) ? id : Guid.Empty;
+            if (claim != null && Guid.TryParse(claim, out var id))
+                return id;
+
+            throw new UnauthorizedAccessException("Token autenticado sem claim de usuário válida.");
         }
     }
 
     public string UserName
-        => _httpContextAccessor.HttpContext?.User.FindFirst("email")?.Value ?? "system";
+    {
+        get
+        {
+            var email = _httpContextAccessor.HttpContext?.User.FindFirst("email")?.Value;
+            if (!string.IsNullOrWhiteSpace(email))
+                return email;
+
+            throw new UnauthorizedAccessException("Token autenticado sem claim de e-mail válida.");
+        }
+    }
 }
