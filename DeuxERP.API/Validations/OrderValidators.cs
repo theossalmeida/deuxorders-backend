@@ -8,11 +8,6 @@ namespace DeuxERP.API.Validations
     {
         public UpdateOrderRequestValidator()
         {
-            RuleFor(x => x.DeliveryDate)
-                .GreaterThanOrEqualTo(DateTime.UtcNow.Date)
-                .WithMessage("A data de entrega não pode ser no passado.")
-                .When(x => x.DeliveryDate.HasValue);
-
             RuleFor(x => x.Status)
                 .Must(s => !s.HasValue || Enum.IsDefined(typeof(OrderStatus), s.Value))
                 .WithMessage("Status inválido.");

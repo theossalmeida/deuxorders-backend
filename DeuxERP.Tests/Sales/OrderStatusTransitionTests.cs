@@ -38,9 +38,9 @@ namespace DeuxERP.Tests.Sales
             return (client!.Id, product!.Id);
         }
 
-        private async Task<OrderResponse> CreateOrderAsync(Guid clientId, Guid productId)
+        private async Task<OrderResponse> CreateOrderAsync(Guid clientId, Guid productId, DateTime? deliveryDate = null)
         {
-            var req = new CreateOrderRequest(clientId, DateTime.UtcNow.AddDays(1),
+            var req = new CreateOrderRequest(clientId, deliveryDate ?? DateTime.UtcNow.AddDays(1),
                 new List<CreateOrderItemRequest> { new(productId, 1, 1500, null, null, null) }, null);
             var res = await _client.PostAsJsonAsync("/api/v1/orders/new", req);
             res.EnsureSuccessStatusCode();
@@ -67,6 +67,23 @@ namespace DeuxERP.Tests.Sales
             Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             var updated = await GetOrderAsync(order.Id);
             Assert.Equal(OrderStatus.Completed, updated.Status);
+        }
+
+        [Fact]
+        public async Task UpdateOrder_WithPastDeliveryDateAndCompletedStatus_Succeeds()
+        {
+            await AuthenticateAsync();
+            var (clientId, productId) = await CreateClientAndProductAsync();
+            var pastDeliveryDate = DateTime.UtcNow.AddDays(-3);
+            var order = await CreateOrderAsync(clientId, productId, pastDeliveryDate);
+
+            var res = await _client.PutAsJsonAsync($"/api/v1/orders/{order.Id}",
+                new UpdateOrderRequest(pastDeliveryDate, (int)OrderStatus.Completed, null, null));
+
+            res.EnsureSuccessStatusCode();
+            var updated = await GetOrderAsync(order.Id);
+            Assert.Equal(OrderStatus.Completed, updated.Status);
+            Assert.Equal(pastDeliveryDate.Date, updated.DeliveryDate.Date);
         }
 
         [Fact]
