@@ -10,16 +10,16 @@ namespace DeuxERP.Infrastructure.Cash.Handlers;
 public class OrderPaidEventHandler : IDomainEventHandler<OrderPaidEvent>
 {
     private readonly ICashFlowRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly IAppDbContext _db;
     private readonly ILogger<OrderPaidEventHandler> _logger;
 
     public OrderPaidEventHandler(
         ICashFlowRepository repository,
-        IUnitOfWork unitOfWork,
+        IAppDbContext db,
         ILogger<OrderPaidEventHandler> logger)
     {
         _repository = repository;
-        _unitOfWork = unitOfWork;
+        _db = db;
         _logger = logger;
     }
 
@@ -30,7 +30,7 @@ public class OrderPaidEventHandler : IDomainEventHandler<OrderPaidEvent>
 
         try
         {
-            await _unitOfWork.CommitAsync();
+            await _db.SaveChangesAsync(ct);
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {

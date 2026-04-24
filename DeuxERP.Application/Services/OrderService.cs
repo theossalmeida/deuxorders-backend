@@ -1,42 +1,38 @@
+using DeuxERP.Application.Common;
 using DeuxERP.Application.DTOs;
-using DeuxERP.Domain.Interfaces;
 using DeuxERP.Domain.Sales;
+using Microsoft.EntityFrameworkCore;
 
 namespace DeuxERP.Application.Services
 {
     public class OrderService
     {
-        private readonly IOrderRepository _repository;
-        private readonly IClientRepository _clientRepository;
-        private readonly IProductRepository _productRepository;
-        private readonly IUnitOfWork _unitOfWork;
+        private readonly IAppDbContext _db;
+        private readonly ICurrentUserAccessor _currentUser;
         private readonly InventoryService _inventoryService;
 
         public OrderService(
-            IOrderRepository repository,
-            IClientRepository clientRepository,
-            IProductRepository productRepository,
-            IUnitOfWork unitOfWork,
+            IAppDbContext db,
+            ICurrentUserAccessor currentUser,
             InventoryService inventoryService)
         {
-            _repository = repository;
-            _clientRepository = clientRepository;
-            _productRepository = productRepository;
-            _unitOfWork = unitOfWork;
+            _db = db;
+            _currentUser = currentUser;
             _inventoryService = inventoryService;
         }
 
         public async Task<Order> CreateOrderAsync(CreateOrderRequest request)
         {
-            var client = await _clientRepository.GetByIdAsync(request.ClientId);
+            var client = await _db.Clients.FirstOrDefaultAsync(client => client.Id == request.ClientId);
             if (client == null || !client.Status)
                 throw new InvalidOperationException("Cliente inexistente ou inativo.");
 
-            var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
-            var dbProducts = await _productRepository.GetByManyIdsAsync(productIds);
+            var productIds = request.Items.Select(item => item.ProductId).Distinct().ToList();
+            var dbProducts = await _db.Products
+                .Where(product => productIds.Contains(product.Id))
+                .ToListAsync();
 
-            var productsDict = dbProducts.ToDictionary(p => p.Id);
-
+            var productsDict = dbProducts.ToDictionary(product => product.Id);
             var order = new Order(request.ClientId, request.DeliveryDate);
 
             foreach (var item in request.Items)
@@ -53,15 +49,15 @@ namespace DeuxERP.Application.Services
             if (request.References != null)
                 order.SetReferences(request.References);
 
-            _repository.Add(order);
-            await _unitOfWork.CommitAsync();
+            _db.Orders.Add(order);
+            await _db.SaveChangesAsync();
 
             return order;
         }
 
         public async Task<(Order Order, List<string> Warnings)> UpdateOrderAsync(Guid id, UpdateOrderRequest request)
         {
-            var order = await _repository.GetByIdAsync(id)
+            var order = await LoadTrackedOrderAsync(id)
                 ?? throw new InvalidOperationException("Pedido não encontrado.");
 
             var warnings = new List<string>();
@@ -83,17 +79,19 @@ namespace DeuxERP.Application.Services
 
             if (request.Items != null && request.Items.Count > 0)
             {
-                var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
-                var dbProducts = await _productRepository.GetByManyIdsAsync(productIds);
-                var productsDict = dbProducts.ToDictionary(p => p.Id);
-                var existingProductIds = order.Items.Select(i => i.ProductId).ToHashSet();
+                var productIds = request.Items.Select(item => item.ProductId).Distinct().ToList();
+                var dbProducts = await _db.Products
+                    .Where(product => productIds.Contains(product.Id))
+                    .ToListAsync();
+                var productsDict = dbProducts.ToDictionary(product => product.Id);
+                var existingProductIds = order.Items.Select(item => item.ProductId).ToHashSet();
 
                 foreach (var itemRequest in request.Items)
                 {
                     if (!productsDict.TryGetValue(itemRequest.ProductId, out var product))
                         throw new InvalidOperationException($"Produto {itemRequest.ProductId} não encontrado.");
 
-                    var existingItem = order.Items.FirstOrDefault(i => i.ProductId == itemRequest.ProductId);
+                    var existingItem = order.Items.FirstOrDefault(item => item.ProductId == itemRequest.ProductId);
                     var previousQuantity = existingItem?.Quantity ?? 0;
 
                     var isNewItem = existingProductIds.Add(itemRequest.ProductId);
@@ -113,7 +111,7 @@ namespace DeuxERP.Application.Services
                     if (!isPreparingOrWaiting)
                         continue;
 
-                    var updatedItem = order.Items.First(i => i.ProductId == itemRequest.ProductId);
+                    var updatedItem = order.Items.First(item => item.ProductId == itemRequest.ProductId);
                     var quantityDelta = updatedItem.Quantity - previousQuantity;
                     if (quantityDelta == 0)
                         continue;
@@ -138,9 +136,88 @@ namespace DeuxERP.Application.Services
             if (request.References != null)
                 order.AppendReferences(request.References);
 
-            await _unitOfWork.CommitAsync();
+            await _db.SaveChangesAsync();
 
             return (order, warnings.Distinct().ToList());
+        }
+
+        public async Task<Order> RemoveReferenceAsync(Order order, string objectKey)
+        {
+            order.RemoveReference(objectKey);
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public async Task<Order> CompleteAsync(Order order)
+        {
+            order.MarkAsCompleted();
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public async Task<Order> CancelAsync(Order order)
+        {
+            var shouldRestoreInventory = order.Status == OrderStatus.Preparing
+                || order.Status == OrderStatus.WaitingPickupOrDelivery;
+
+            if (shouldRestoreInventory)
+                await _inventoryService.RestoreForOrderAsync(order);
+
+            order.MarkAsCanceled();
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public async Task<Order> CancelItemAsync(Order order, Guid productId)
+        {
+            var item = order.Items.FirstOrDefault(orderItem => orderItem.ProductId == productId)
+                ?? throw new InvalidOperationException("Item não encontrado no pedido.");
+
+            var shouldRestoreInventory = order.Status == OrderStatus.Preparing
+                || order.Status == OrderStatus.WaitingPickupOrDelivery;
+
+            order.CancelItem(productId);
+
+            if (shouldRestoreInventory)
+                await _inventoryService.AdjustForItemAsync(productId, -item.Quantity);
+
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public async Task<(Order Order, List<string> Warnings)> UpdateItemQuantityAsync(Order order, Guid productId, int increment)
+        {
+            order.UpdateItemQuantity(productId, increment);
+
+            var warnings = new List<string>();
+            if (order.Status == OrderStatus.Preparing || order.Status == OrderStatus.WaitingPickupOrDelivery)
+                warnings = await _inventoryService.AdjustForItemAsync(productId, increment);
+
+            await _db.SaveChangesAsync();
+            return (order, warnings);
+        }
+
+        public async Task<Order> MarkAsPaidAsync(Order order)
+        {
+            order.MarkAsPaid(_currentUser.UserId, _currentUser.UserName, DateTime.UtcNow);
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public async Task<Order> UnmarkAsPaidAsync(Order order, string reason)
+        {
+            order.UnmarkAsPaid(_currentUser.UserId, _currentUser.UserName, reason);
+            await _db.SaveChangesAsync();
+            return order;
+        }
+
+        public Task<Order?> LoadTrackedOrderAsync(Guid id)
+        {
+            return _db.Orders
+                .Include(order => order.Client)
+                .Include(order => order.Items)
+                    .ThenInclude(item => item.Product)
+                .FirstOrDefaultAsync(order => order.Id == id);
         }
     }
 }

@@ -15,16 +15,6 @@ namespace DeuxERP.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<Order?> GetByIdAsync(Guid id)
-        {
-            return await _context.Orders
-                .Include(o => o.Client)
-                .Include(o => o.Items)
-                    .ThenInclude(i => i.Product)
-                .AsSplitQuery()
-                .FirstOrDefaultAsync(o => o.Id == id);
-        }
-
         public async Task<Order?> GetByIdReadOnlyAsync(Guid id)
         {
             return await _context.Orders
@@ -36,25 +26,38 @@ namespace DeuxERP.Infrastructure.Repositories
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
 
-        public void Add(Order order) => _context.Orders.Add(order);
-
-        public void Update(Order order) => _context.Orders.Update(order);
-
-        public async Task<bool> DeleteAsync(Guid id)
-        {
-            var rowsAffected = await _context.Orders
-                .Where(o => o.Id == id)
-                .ExecuteDeleteAsync();
-
-            return rowsAffected > 0;
-        }
-
-        public async Task<PagedResult<Order>> GetAllAsync(int pageNumber, int pageSize, OrderStatus? status = null)
+        public async Task<PagedResult<Order>> GetAllAsync(
+            int pageNumber,
+            int pageSize,
+            OrderStatus? status = null,
+            DateTime? from = null,
+            DateTime? to = null,
+            string? search = null)
         {
             var baseQuery = _context.Orders.AsNoTracking();
 
             if (status.HasValue)
                 baseQuery = baseQuery.Where(o => o.Status == status.Value);
+
+            if (from.HasValue)
+            {
+                var fromDate = from.Value.Date;
+                baseQuery = baseQuery.Where(o => o.DeliveryDate >= fromDate);
+            }
+
+            if (to.HasValue)
+            {
+                var exclusiveTo = to.Value.Date.AddDays(1);
+                baseQuery = baseQuery.Where(o => o.DeliveryDate < exclusiveTo);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                baseQuery = baseQuery.Where(o =>
+                    o.Id.ToString().ToLower().Contains(term) ||
+                    o.Client.Name.ToLower().Contains(term));
+            }
 
             var totalCount = await baseQuery.CountAsync();
 
@@ -148,7 +151,7 @@ namespace DeuxERP.Infrastructure.Repositories
                 query = query.Where(o => o.DeliveryDate >= filter.From.Value);
 
             if (filter.To.HasValue)
-                query = query.Where(o => o.DeliveryDate <= filter.To.Value);
+                query = query.Where(o => o.DeliveryDate < filter.To.Value);
 
             return await query
                 .OrderBy(o => o.DeliveryDate)
@@ -178,7 +181,7 @@ namespace DeuxERP.Infrastructure.Repositories
                 query = query.Where(o => o.DeliveryDate >= filter.From.Value);
 
             if (filter.To.HasValue)
-                query = query.Where(o => o.DeliveryDate <= filter.To.Value);
+                query = query.Where(o => o.DeliveryDate < filter.To.Value);
 
             return query
                 .OrderBy(o => o.DeliveryDate)
@@ -208,7 +211,7 @@ namespace DeuxERP.Infrastructure.Repositories
                 query = query.Where(o => o.DeliveryDate >= filter.From.Value);
 
             if (filter.To.HasValue)
-                query = query.Where(o => o.DeliveryDate <= filter.To.Value);
+                query = query.Where(o => o.DeliveryDate < filter.To.Value);
 
             return await query
                 .SelectMany(o => o.Items.Where(i => !i.ItemCanceled))

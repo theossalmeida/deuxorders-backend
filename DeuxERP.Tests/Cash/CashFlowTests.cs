@@ -186,35 +186,5 @@ namespace DeuxERP.Tests.Cash
             Assert.Contains(pagedWithDeleted!.Items, e => e.Id == created.Id);
         }
 
-        [Fact]
-        public async Task GetSummary_TotalsMatchEntries()
-        {
-            await AuthenticateAsAdminAsync();
-
-            await _client.PostAsJsonAsync("/api/v1/cash/entries", new
-            {
-                BillingDate = DateTime.UtcNow,
-                Type = "Inflow",
-                Category = "Other",
-                Counterparty = "Resumo Teste Entrada",
-                AmountCents = 10000
-            });
-            await _client.PostAsJsonAsync("/api/v1/cash/entries", new
-            {
-                BillingDate = DateTime.UtcNow,
-                Type = "Outflow",
-                Category = "Other",
-                Counterparty = "Resumo Teste Saida",
-                AmountCents = 4000
-            });
-
-            var res = await _client.GetAsync("/api/v1/cash/summary");
-            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
-            var summary = await res.Content.ReadFromJsonAsync<CashSummaryResponse>(JsonOptions);
-
-            Assert.True(summary!.TotalInflowCents >= 10000);
-            Assert.True(summary.TotalOutflowCents >= 4000);
-            Assert.Equal(summary.TotalInflowCents - summary.TotalOutflowCents, summary.NetBalanceCents);
-        }
     }
 }

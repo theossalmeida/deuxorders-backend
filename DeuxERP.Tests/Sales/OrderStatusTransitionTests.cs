@@ -11,70 +11,154 @@ namespace DeuxERP.Tests.Sales
 {
     public class OrderStatusTransitionTests : BaseIntegrationTest
     {
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new JsonStringEnumConverter() }
+        };
+
         public OrderStatusTransitionTests(IntegrationTestFactory<Program> factory) : base(factory) { }
 
-        [Fact]
-        public async Task UpdateOrder_ShouldAllowReopeningCompletedAndCanceledOrders()
+        private async Task<(Guid clientId, Guid productId)> CreateClientAndProductAsync()
         {
-            var jsonOptions = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                Converters = { new JsonStringEnumConverter() }
-            };
+            var suffix = Guid.NewGuid().ToString("N")[..8];
 
-            await AuthenticateAsync();
-
-            var clientRequest = new CreateClient("Cliente Reabertura", "11999990000");
-            var clientRes = await _client.PostAsJsonAsync("/api/v1/clients/new", clientRequest);
+            var clientRes = await _client.PostAsJsonAsync("/api/v1/clients/new",
+                new CreateClient($"Cliente Trans {suffix}", "11999990000"));
             clientRes.EnsureSuccessStatusCode();
-            var customer = (await clientRes.Content.ReadFromJsonAsync<ClientResponse>(jsonOptions))!;
+            var client = await clientRes.Content.ReadFromJsonAsync<ClientResponse>(JsonOptions);
 
             var productForm = new MultipartFormDataContent();
-            productForm.Add(new StringContent("Produto Reabertura"), "Name");
+            productForm.Add(new StringContent($"Produto Trans {suffix}"), "Name");
             productForm.Add(new StringContent("1500"), "Price");
             var productRes = await _client.PostAsync("/api/v1/products/new", productForm);
             productRes.EnsureSuccessStatusCode();
-            var product = (await productRes.Content.ReadFromJsonAsync<ProductResponse>(jsonOptions))!;
+            var product = await productRes.Content.ReadFromJsonAsync<ProductResponse>(JsonOptions);
 
-            var completedOrderRes = await _client.PostAsJsonAsync(
-                "/api/v1/orders/new",
-                new CreateOrderRequest(
-                    customer.Id,
-                    DateTime.UtcNow.AddDays(1),
-                    new List<CreateOrderItemRequest> { new(product.Id, 1, 1500, null, null, null) },
-                    null));
-            completedOrderRes.EnsureSuccessStatusCode();
-            var completedOrder = (await completedOrderRes.Content.ReadFromJsonAsync<OrderResponse>(jsonOptions))!;
+            return (client!.Id, product!.Id);
+        }
 
-            var canceledOrderRes = await _client.PostAsJsonAsync(
-                "/api/v1/orders/new",
-                new CreateOrderRequest(
-                    customer.Id,
-                    DateTime.UtcNow.AddDays(1),
-                    new List<CreateOrderItemRequest> { new(product.Id, 1, 1500, null, null, null) },
-                    null));
-            canceledOrderRes.EnsureSuccessStatusCode();
-            var canceledOrder = (await canceledOrderRes.Content.ReadFromJsonAsync<OrderResponse>(jsonOptions))!;
+        private async Task<OrderResponse> CreateOrderAsync(Guid clientId, Guid productId)
+        {
+            var req = new CreateOrderRequest(clientId, DateTime.UtcNow.AddDays(1),
+                new List<CreateOrderItemRequest> { new(productId, 1, 1500, null, null, null) }, null);
+            var res = await _client.PostAsJsonAsync("/api/v1/orders/new", req);
+            res.EnsureSuccessStatusCode();
+            return (await res.Content.ReadFromJsonAsync<OrderResponse>(JsonOptions))!;
+        }
 
-            var completeRes = await _client.PatchAsync($"/api/v1/orders/{completedOrder.Id}/complete", null);
-            completeRes.EnsureSuccessStatusCode();
+        private async Task<OrderResponse> GetOrderAsync(Guid orderId)
+        {
+            var res = await _client.GetAsync($"/api/v1/orders/{orderId}");
+            res.EnsureSuccessStatusCode();
+            return (await res.Content.ReadFromJsonAsync<OrderResponse>(JsonOptions))!;
+        }
 
-            var cancelRes = await _client.PatchAsync($"/api/v1/orders/{canceledOrder.Id}/cancel", null);
-            cancelRes.EnsureSuccessStatusCode();
+        [Fact]
+        public async Task MarkAsCompleted_FromReceived_SetsCompleted()
+        {
+            await AuthenticateAsync();
+            var (clientId, productId) = await CreateClientAndProductAsync();
+            var order = await CreateOrderAsync(clientId, productId);
+            Assert.Equal(OrderStatus.Received, order.Status);
 
-            var reopenCompletedRes = await _client.PutAsJsonAsync(
-                $"/api/v1/orders/{completedOrder.Id}",
-                new UpdateOrderRequest(null, (int)OrderStatus.Received, null, null));
-            reopenCompletedRes.EnsureSuccessStatusCode();
-            var reopenedCompleted = (await reopenCompletedRes.Content.ReadFromJsonAsync<OrderResponse>(jsonOptions))!;
-            Assert.Equal(OrderStatus.Received, reopenedCompleted.Status);
+            var res = await _client.PatchAsync($"/api/v1/orders/{order.Id}/complete", null);
 
-            var reopenCanceledRes = await _client.PutAsJsonAsync(
-                $"/api/v1/orders/{canceledOrder.Id}",
+            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+            var updated = await GetOrderAsync(order.Id);
+            Assert.Equal(OrderStatus.Completed, updated.Status);
+        }
+
+        [Fact]
+        public async Task MarkAsCompleted_AlreadyCompleted_IsIdempotent()
+        {
+            await AuthenticateAsync();
+            var (clientId, productId) = await CreateClientAndProductAsync();
+            var order = await CreateOrderAsync(clientId, productId);
+
+            await _client.PatchAsync($"/api/v1/orders/{order.Id}/complete", null);
+            var second = await _client.PatchAsync($"/api/v1/orders/{order.Id}/complete", null);
+
+            Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+            var updated = await GetOrderAsync(order.Id);
+            Assert.Equal(OrderStatus.Completed, updated.Status);
+        }
+
+        [Fact]
+        public async Task MarkAsCanceled_FromCompleted_ReturnsBadRequest()
+        {
+            await AuthenticateAsync();
+            var (clientId, productId) = await CreateClientAndProductAsync();
+            var order = await CreateOrderAsync(clientId, productId);
+
+            await _client.PatchAsync($"/api/v1/orders/{order.Id}/complete", null);
+            var res = await _client.PatchAsync($"/api/v1/orders/{order.Id}/cancel", null);
+
+            Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        }
+
+        [Fact]
+        public async Task MarkAsCanceled_AlreadyCanceled_ReturnsBadRequest()
+        {
+            await AuthenticateAsync();
+            var (clientId, productId) = await CreateClientAndProductAsync();
+            var order = await CreateOrderAsync(clientId, productId);
+
+            await _client.PatchAsync($"/api/v1/orders/{order.Id}/cancel", null);
+            var res = await _client.PatchAsync($"/api/v1/orders/{order.Id}/cancel", null);
+
+            Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        }
+
+        [Fact]
+        public async Task CancelOrder_FromPreparing_Succeeds()
+        {
+            await AuthenticateAsync();
+            var (clientId, productId) = await CreateClientAndProductAsync();
+            var order = await CreateOrderAsync(clientId, productId);
+
+            await _client.PutAsJsonAsync($"/api/v1/orders/{order.Id}",
                 new UpdateOrderRequest(null, (int)OrderStatus.Preparing, null, null));
-            reopenCanceledRes.EnsureSuccessStatusCode();
-            var reopenedCanceled = (await reopenCanceledRes.Content.ReadFromJsonAsync<OrderResponse>(jsonOptions))!;
-            Assert.Equal(OrderStatus.Preparing, reopenedCanceled.Status);
+
+            var res = await _client.PatchAsync($"/api/v1/orders/{order.Id}/cancel", null);
+
+            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+            var updated = await GetOrderAsync(order.Id);
+            Assert.Equal(OrderStatus.Canceled, updated.Status);
+        }
+
+        [Fact]
+        public async Task UpdateOrder_ReopenCompletedOrder_Succeeds()
+        {
+            await AuthenticateAsync();
+            var (clientId, productId) = await CreateClientAndProductAsync();
+            var order = await CreateOrderAsync(clientId, productId);
+
+            await _client.PatchAsync($"/api/v1/orders/{order.Id}/complete", null);
+
+            var res = await _client.PutAsJsonAsync($"/api/v1/orders/{order.Id}",
+                new UpdateOrderRequest(null, (int)OrderStatus.Received, null, null));
+
+            res.EnsureSuccessStatusCode();
+            var updated = await GetOrderAsync(order.Id);
+            Assert.Equal(OrderStatus.Received, updated.Status);
+        }
+
+        [Fact]
+        public async Task UpdateOrder_ReopenCanceledOrder_Succeeds()
+        {
+            await AuthenticateAsync();
+            var (clientId, productId) = await CreateClientAndProductAsync();
+            var order = await CreateOrderAsync(clientId, productId);
+
+            await _client.PatchAsync($"/api/v1/orders/{order.Id}/cancel", null);
+
+            var res = await _client.PutAsJsonAsync($"/api/v1/orders/{order.Id}",
+                new UpdateOrderRequest(null, (int)OrderStatus.Preparing, null, null));
+
+            res.EnsureSuccessStatusCode();
+            var updated = await GetOrderAsync(order.Id);
+            Assert.Equal(OrderStatus.Preparing, updated.Status);
         }
     }
 }

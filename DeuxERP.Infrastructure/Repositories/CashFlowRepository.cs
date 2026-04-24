@@ -94,7 +94,7 @@ public class CashFlowRepository : ICashFlowRepository
             query = query.Where(e => e.BillingDate >= filter.From.Value);
 
         if (filter.To.HasValue)
-            query = query.Where(e => e.BillingDate <= filter.To.Value);
+            query = query.Where(e => e.BillingDate < filter.To.Value);
 
         if (filter.Type.HasValue)
             query = query.Where(e => e.Type == filter.Type.Value);

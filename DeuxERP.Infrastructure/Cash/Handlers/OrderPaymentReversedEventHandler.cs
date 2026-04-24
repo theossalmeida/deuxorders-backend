@@ -10,16 +10,16 @@ namespace DeuxERP.Infrastructure.Cash.Handlers;
 public class OrderPaymentReversedEventHandler : IDomainEventHandler<OrderPaymentReversedEvent>
 {
     private readonly ICashFlowRepository _repository;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly IAppDbContext _db;
     private readonly ILogger<OrderPaymentReversedEventHandler> _logger;
 
     public OrderPaymentReversedEventHandler(
         ICashFlowRepository repository,
-        IUnitOfWork unitOfWork,
+        IAppDbContext db,
         ILogger<OrderPaymentReversedEventHandler> logger)
     {
         _repository = repository;
-        _unitOfWork = unitOfWork;
+        _db = db;
         _logger = logger;
     }
 
@@ -30,7 +30,7 @@ public class OrderPaymentReversedEventHandler : IDomainEventHandler<OrderPayment
 
         try
         {
-            await _unitOfWork.CommitAsync();
+            await _db.SaveChangesAsync(ct);
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {

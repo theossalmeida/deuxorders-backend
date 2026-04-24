@@ -1,37 +1,34 @@
 using DeuxERP.API.Models;
 using DeuxERP.API.Services;
+using DeuxERP.Application.Common;
 using DeuxERP.Application.DTOs;
 using DeuxERP.Application.Mapping;
 using DeuxERP.Domain.Interfaces;
 using DeuxERP.Domain.Inventory;
+using DeuxERP.Domain.Models;
 using DeuxERP.Domain.Sales;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 [Authorize]
 [ApiController]
 [Route("api/v1/products")]
 public class ProductController : ControllerBase
 {
-    private readonly IProductRepository _repository;
+    private readonly IAppDbContext _db;
     private readonly IOrderRepository _orderRepository;
-    private readonly IInventoryMaterialRepository _inventoryMaterialRepository;
-    private readonly IUnitOfWork _unitOfWork;
     private readonly IStorageService _storageService;
     private readonly ILogger<ProductController> _logger;
 
     public ProductController(
-        IProductRepository repository,
+        IAppDbContext db,
         IOrderRepository orderRepository,
-        IInventoryMaterialRepository inventoryMaterialRepository,
-        IUnitOfWork unitOfWork,
         IStorageService storageService,
         ILogger<ProductController> logger)
     {
-        _repository = repository;
+        _db = db;
         _orderRepository = orderRepository;
-        _inventoryMaterialRepository = inventoryMaterialRepository;
-        _unitOfWork = unitOfWork;
         _storageService = storageService;
         _logger = logger;
     }
@@ -60,9 +57,9 @@ public class ProductController : ControllerBase
             product.SetImage(uploadedObjectKey);
         }
 
-        _repository.Add(product);
+        _db.Products.Add(product);
 
-        if (!await _unitOfWork.CommitAsync())
+        if (await _db.SaveChangesAsync() == 0)
         {
             if (uploadedObjectKey != null)
             {
@@ -87,7 +84,7 @@ public class ProductController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(Guid id, [FromForm] UpdateProductRequest request)
     {
-        var product = await _repository.GetByIdAsync(id);
+        var product = await _db.Products.FirstOrDefaultAsync(currentProduct => currentProduct.Id == id);
         if (product == null) return NotFound();
 
         string? newObjectKey = null;
@@ -109,7 +106,7 @@ public class ProductController : ControllerBase
         var oldObjectKey = product.Image;
         product.Update(request.Name, request.Price, request.Description, newObjectKey ?? product.Image, request.Category, request.Size);
 
-        if (!await _unitOfWork.CommitAsync())
+        if (await _db.SaveChangesAsync() == 0)
         {
             if (newObjectKey != null)
             {
@@ -136,7 +133,7 @@ public class ProductController : ControllerBase
             catch
             {
                 product.Update(request.Name, request.Price, request.Description, oldObjectKey, request.Category, request.Size);
-                if (!await _unitOfWork.CommitAsync())
+                if (await _db.SaveChangesAsync() == 0)
                 {
                     _logger.LogCritical(
                         "Failed to restore product {ProductId} image reference after storage cleanup failure.",
@@ -165,14 +162,14 @@ public class ProductController : ControllerBase
     [HttpDelete("{id}/image")]
     public async Task<IActionResult> DeleteImage(Guid id)
     {
-        var product = await _repository.GetByIdAsync(id);
+        var product = await _db.Products.FirstOrDefaultAsync(currentProduct => currentProduct.Id == id);
         if (product == null) return NotFound();
         if (product.Image == null) return BadRequest("Produto não possui imagem.");
 
         var objectKey = product.Image;
         product.SetImage(null);
 
-        if (!await _unitOfWork.CommitAsync())
+        if (await _db.SaveChangesAsync() == 0)
             return BadRequest("Falha ao remover a imagem do banco de dados.");
 
         try
@@ -182,7 +179,7 @@ public class ProductController : ControllerBase
         catch
         {
             product.SetImage(objectKey);
-            if (!await _unitOfWork.CommitAsync())
+            if (await _db.SaveChangesAsync() == 0)
             {
                 _logger.LogCritical(
                     "Failed to restore product {ProductId} image reference after storage delete failure.",
@@ -199,12 +196,13 @@ public class ProductController : ControllerBase
     [HttpPatch("{id}/inactive", Name = "SetProductInactive")]
     public async Task<IActionResult> DeactivateProduct(Guid id)
     {
-        var product = await _repository.GetByIdAsync(id);
+        var product = await _db.Products.FirstOrDefaultAsync(currentProduct => currentProduct.Id == id);
         if (product == null) return NotFound();
         if (!product.ProductStatus) return BadRequest("Produto já está desativado.");
+
         product.ChangeProductStatus();
 
-        if (!await _unitOfWork.CommitAsync())
+        if (await _db.SaveChangesAsync() == 0)
             return BadRequest("Falha ao desativar o produto no banco de dados.");
 
         var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
@@ -214,13 +212,13 @@ public class ProductController : ControllerBase
     [HttpPatch("{id}/active", Name = "SetProductActive")]
     public async Task<IActionResult> ActivateProduct(Guid id)
     {
-        var product = await _repository.GetByIdAsync(id);
+        var product = await _db.Products.FirstOrDefaultAsync(currentProduct => currentProduct.Id == id);
         if (product == null) return NotFound();
         if (product.ProductStatus) return BadRequest("Produto já está ativo.");
 
         product.ChangeProductStatus();
 
-        if (!await _unitOfWork.CommitAsync())
+        if (await _db.SaveChangesAsync() == 0)
             return BadRequest("Falha ao ativar o produto no banco de dados.");
 
         var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
@@ -230,15 +228,31 @@ public class ProductController : ControllerBase
     [HttpGet("dropdown")]
     public async Task<IActionResult> GetForDropdown([FromQuery] bool? status)
     {
-        var result = await _repository.GetForDropdownAsync(status);
+        var query = _db.Products.AsNoTracking();
+
+        if (status.HasValue)
+            query = query.Where(product => product.ProductStatus == status.Value);
+
+        var result = await query
+            .Select(product => new ProductDropdownModel
+            {
+                Id = product.Id,
+                Name = product.Name,
+                Price = product.Price
+            })
+            .ToListAsync();
+
         return Ok(result);
     }
 
     [HttpGet("{id}", Name = "GetProductById")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var product = await _repository.GetByIdAsync(id);
+        var product = await _db.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(currentProduct => currentProduct.Id == id);
         if (product == null) return NotFound();
+
         var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
         return Ok(product.ToResponse(imageUrl));
     }
@@ -246,21 +260,26 @@ public class ProductController : ControllerBase
     [HttpPut("{id}/recipe")]
     public async Task<IActionResult> SetRecipe(Guid id, [FromBody] SetRecipeRequest request)
     {
-        var product = await _repository.GetByIdWithRecipeAsync(id);
+        var product = await _db.Products
+            .Include(currentProduct => currentProduct.RecipeItems)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(currentProduct => currentProduct.Id == id);
         if (product == null) return NotFound();
 
         if (request.Items.Count == 0)
         {
             product.ClearRecipe();
 
-            if (!await _unitOfWork.CommitAsync())
+            if (await _db.SaveChangesAsync() == 0)
                 return BadRequest("Falha ao limpar a receita do produto.");
 
             return Ok(new ProductRecipeResponse(false, []));
         }
 
         var materialIds = request.Items.Select(item => item.MaterialId).Distinct().ToList();
-        var materials = (await _inventoryMaterialRepository.GetByManyIdsAsync(materialIds)).ToList();
+        var materials = await _db.InventoryMaterials
+            .Where(material => materialIds.Contains(material.Id))
+            .ToListAsync();
         var materialsById = materials.ToDictionary(material => material.Id);
 
         if (materialsById.Count != materialIds.Count)
@@ -287,7 +306,7 @@ public class ProductController : ControllerBase
 
         product.SetRecipe(finalRecipeItems);
 
-        if (!await _unitOfWork.CommitAsync())
+        if (await _db.SaveChangesAsync() == 0)
             return BadRequest("Falha ao salvar a receita do produto.");
 
         var responseItems = finalRecipeItems
@@ -308,10 +327,15 @@ public class ProductController : ControllerBase
     [HttpGet("{id}/recipe")]
     public async Task<IActionResult> GetRecipe(Guid id)
     {
-        var product = await _repository.GetByIdAsync(id);
-        if (product == null) return NotFound();
+        var productExists = await _db.Products.AsNoTracking().AnyAsync(product => product.Id == id);
+        if (!productExists) return NotFound();
 
-        var recipeItems = await _repository.GetRecipeItemsByProductIdAsync(id);
+        var recipeItems = await _db.ProductRecipeItems
+            .AsNoTracking()
+            .Where(recipeItem => recipeItem.ProductId == id)
+            .Include(recipeItem => recipeItem.Material)
+            .ToListAsync();
+
         var response = recipeItems
             .Select(recipeItem => new RecipeItemResponse(
                 recipeItem.MaterialId,
@@ -333,8 +357,8 @@ public class ProductController : ControllerBase
             return BadRequest("O parâmetro 'month' é obrigatório no formato YYYY-MM.");
         }
 
-        var product = await _repository.GetByIdAsync(id);
-        if (product == null) return NotFound();
+        var productExists = await _db.Products.AsNoTracking().AnyAsync(product => product.Id == id, ct);
+        if (!productExists) return NotFound();
 
         var stats = await _orderRepository.GetProductStatsAsync(id, parsed.Year, parsed.Month, ct);
         return Ok(stats);
@@ -344,17 +368,36 @@ public class ProductController : ControllerBase
     public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] bool? status, [FromQuery] int page = 1, [FromQuery] int size = 20)
     {
         if (size > 100) size = 100;
-        var result = await _repository.GetAllAsync(search, status, page, size);
+
+        var query = _db.Products.AsNoTracking();
+
+        if (status.HasValue)
+            query = query.Where(product => product.ProductStatus == status.Value);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = _db.Database.IsNpgsql()
+                ? query.Where(product => EF.Functions.ILike(product.Name, $"%{search}%"))
+                : query.Where(product => product.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderBy(product => product.Name)
+            .Skip((page - 1) * size)
+            .Take(size)
+            .ToListAsync();
+
         return Ok(new
         {
-            items = result.Items.Select(p =>
+            items = items.Select(product =>
             {
-                var imageUrl = p.Image != null ? _storageService.GetPublicUrl(p.Image) : null;
-                return p.ToResponse(imageUrl);
+                var imageUrl = product.Image != null ? _storageService.GetPublicUrl(product.Image) : null;
+                return product.ToResponse(imageUrl);
             }),
-            totalCount = result.TotalCount,
-            pageNumber = result.PageNumber,
-            pageSize = result.PageSize
+            totalCount,
+            pageNumber = page,
+            pageSize = size
         });
     }
 
@@ -363,12 +406,17 @@ public class ProductController : ControllerBase
     {
         try
         {
-            var product = await _repository.GetByIdAsync(id);
+            var product = await _db.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(currentProduct => currentProduct.Id == id);
             if (product == null) return NotFound(new { Message = "Produto não encontrado." });
 
             var objectKey = product.Image;
-            var success = await _repository.DeleteAsync(id);
-            if (!success) return NotFound(new { Message = "Produto não encontrado." });
+            var rowsAffected = await _db.Products
+                .Where(currentProduct => currentProduct.Id == id)
+                .ExecuteDeleteAsync();
+
+            if (rowsAffected == 0) return NotFound(new { Message = "Produto não encontrado." });
 
             if (objectKey != null)
             {

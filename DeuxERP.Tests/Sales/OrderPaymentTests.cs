@@ -68,10 +68,19 @@ namespace DeuxERP.Tests.Sales
             var (clientId, productId) = await CreateClientAndProductAsync();
             var order = await CreateOrderWithItemAsync(clientId, productId);
 
-            await _client.PatchAsync($"/api/v1/orders/{order.Id}/pay", null);
+            var first = await _client.PatchAsync($"/api/v1/orders/{order.Id}/pay", null);
             var second = await _client.PatchAsync($"/api/v1/orders/{order.Id}/pay", null);
 
+            Assert.Equal(HttpStatusCode.OK, first.StatusCode);
             Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+
+            var secondBody = await second.Content.ReadFromJsonAsync<OrderResponse>(JsonOptions);
+            Assert.NotNull(secondBody!.PaidAt);
+
+            var entriesRes = await _client.GetAsync("/api/v1/cash/entries");
+            var paged = await entriesRes.Content.ReadFromJsonAsync<PagedCashResponse>(JsonOptions);
+            var paymentEntries = paged!.Items.Where(e => e.SourceId == order.Id && e.Source == "OrderPayment").ToList();
+            Assert.Single(paymentEntries);
         }
 
         [Fact]
@@ -128,6 +137,28 @@ namespace DeuxERP.Tests.Sales
             Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             var updated = await res.Content.ReadFromJsonAsync<OrderResponse>(JsonOptions);
             Assert.Null(updated!.PaidAt);
+        }
+
+        [Fact]
+        public async Task UnmarkAsPaid_Twice_SecondCallFails()
+        {
+            await AuthenticateAsAdminAsync();
+            var (clientId, productId) = await CreateClientAndProductAsync();
+            var order = await CreateOrderWithItemAsync(clientId, productId);
+
+            await _client.PatchAsync($"/api/v1/orders/{order.Id}/pay", null);
+            await _client.PatchAsJsonAsync($"/api/v1/orders/{order.Id}/unpay",
+                new { Reason = "Primeira reversão válida" });
+
+            var second = await _client.PatchAsJsonAsync($"/api/v1/orders/{order.Id}/unpay",
+                new { Reason = "Segunda reversão inválida" });
+
+            Assert.Equal(HttpStatusCode.BadRequest, second.StatusCode);
+
+            var entriesRes = await _client.GetAsync("/api/v1/cash/entries");
+            var paged = await entriesRes.Content.ReadFromJsonAsync<PagedCashResponse>(JsonOptions);
+            var reversals = paged!.Items.Where(e => e.SourceId == order.Id && e.Source == "OrderReversal").ToList();
+            Assert.Single(reversals);
         }
 
         [Fact]

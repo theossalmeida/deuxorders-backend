@@ -1,115 +1,112 @@
-﻿using DeuxERP.Application.DTOs;
+using DeuxERP.Application.DTOs;
+using DeuxERP.Domain.Sales;
 using DeuxERP.Tests.DTOs;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Xunit; // Certifique-se de que está aqui
+using Xunit;
 
 namespace DeuxERP.Tests
 {
     public class OrderIntegrationFlowTests : BaseIntegrationTest
     {
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new JsonStringEnumConverter() }
+        };
+
         public OrderIntegrationFlowTests(IntegrationTestFactory<Program> factory) : base(factory) { }
+
+        private async Task<OrderResponse> GetOrderAsync(Guid id)
+        {
+            var res = await _client.GetAsync($"/api/v1/orders/{id}");
+            res.EnsureSuccessStatusCode();
+            return (await res.Content.ReadFromJsonAsync<OrderResponse>(JsonOptions))!;
+        }
 
         [Fact]
         public async Task Order_CompleteLifeCycle_ShouldFollowBusinessRules()
         {
-            var jsonOptions = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                Converters = { new JsonStringEnumConverter() }
-            };
-
-            // 1st TEST: Create user and login
-            Console.WriteLine("1st TEST: Starting...");
             await AuthenticateAsync();
-            Console.WriteLine("1st TEST: Completed");
 
-            // 2nd TEST: Create a client
-            Console.WriteLine("2nd TEST: Starting...");
-            var clientRequest = new CreateClient("Cliente Teste Flow", "12345678901");
-            var clientRes = await _client.PostAsJsonAsync("/api/v1/clients/new", clientRequest);
+            var clientRes = await _client.PostAsJsonAsync("/api/v1/clients/new",
+                new CreateClient("Cliente Teste Flow", "12345678901"));
             clientRes.EnsureSuccessStatusCode();
-            var customer = await clientRes.Content.ReadFromJsonAsync<ClientResponse>();
-            var customerId = customer!.Id;
-            Console.WriteLine("2nd TEST: Completed!");
+            var customer = (await clientRes.Content.ReadFromJsonAsync<ClientResponse>(JsonOptions))!;
 
-            // 3rd TEST: Create a product
-            Console.WriteLine("3rd TEST: Starting...");
             var productForm = new MultipartFormDataContent();
             productForm.Add(new StringContent("Produto Teste"), "Name");
             productForm.Add(new StringContent("1000"), "Price");
             var productRes = await _client.PostAsync("/api/v1/products/new", productForm);
             productRes.EnsureSuccessStatusCode();
-            var product = await productRes.Content.ReadFromJsonAsync<ProductResponse>();
-            var productId = product!.Id;
-            Console.WriteLine("3rd TEST: Completed!"); // Corrigido log errado de "2nd" para "3rd"
+            var product = (await productRes.Content.ReadFromJsonAsync<ProductResponse>(JsonOptions))!;
 
-            // 4th TEST: Create 2 orders
-            Console.WriteLine("4th TEST: Starting...");
-            var order1Req = new CreateOrderRequest(customerId, DateTime.UtcNow, new List<CreateOrderItemRequest> { new(productId, 5, 1000, "obs 02", null, null) }, null);
-            var order2Req = new CreateOrderRequest(customerId, DateTime.UtcNow, new List<CreateOrderItemRequest> { new(productId, 5, 1000, "obs 01", null, null) }, null);
+            var order1Res = await _client.PostAsJsonAsync("/api/v1/orders/new",
+                new CreateOrderRequest(customer.Id, DateTime.UtcNow.AddDays(1),
+                    new List<CreateOrderItemRequest> { new(product.Id, 5, 1000, "obs 02", null, null) }, null));
+            Assert.Equal(HttpStatusCode.Created, order1Res.StatusCode);
 
-            var resOrder1 = await _client.PostAsJsonAsync("/api/v1/orders/new", order1Req);
-            Assert.Equal(HttpStatusCode.Created, resOrder1.StatusCode);
-            Console.WriteLine("4th TEST: 1st order created");
+            var order2Res = await _client.PostAsJsonAsync("/api/v1/orders/new",
+                new CreateOrderRequest(customer.Id, DateTime.UtcNow.AddDays(1),
+                    new List<CreateOrderItemRequest> { new(product.Id, 5, 1000, "obs 01", null, null) }, null));
+            Assert.Equal(HttpStatusCode.Created, order2Res.StatusCode);
 
-            var resOrder2 = await _client.PostAsJsonAsync("/api/v1/orders/new", order2Req);
-            Assert.Equal(HttpStatusCode.Created, resOrder2.StatusCode);
-            Console.WriteLine("4th TEST: 2nd order created");
+            var order1 = (await order1Res.Content.ReadFromJsonAsync<OrderResponse>(JsonOptions))!;
+            var order2 = (await order2Res.Content.ReadFromJsonAsync<OrderResponse>(JsonOptions))!;
 
-            var order1 = await resOrder1.Content.ReadFromJsonAsync<OrderResponse>(jsonOptions);
-            var order2 = await resOrder2.Content.ReadFromJsonAsync<OrderResponse>(jsonOptions);
-            Console.WriteLine("4th TEST: Completed!");
+            Assert.Equal(OrderStatus.Received, order1.Status);
+            Assert.Equal(5000, order1.TotalPaid);
+            Assert.Equal(5000, order1.TotalValue);
+            Assert.Single(order1.Items);
+            Assert.Equal(5, order1.Items.First().Quantity);
 
-            await Task.Delay(100);
-
-            // 5th TEST: Get all orders
-            Console.WriteLine("5th TEST: Starting...");
             var allOrdersRes = await _client.GetAsync("/api/v1/orders/all");
             allOrdersRes.EnsureSuccessStatusCode();
+            var paged = (await allOrdersRes.Content.ReadFromJsonAsync<PagedOrderResponse>(JsonOptions))!;
+            var fetched = paged.Items.First(o => o.Id == order1.Id);
+            Assert.Equal("Cliente Teste Flow", fetched.ClientName);
+            Assert.Equal("Produto Teste", fetched.Items.First().ProductName);
 
-            var pagedResponse = await allOrdersRes.Content.ReadFromJsonAsync<PagedOrderResponse>(jsonOptions);
-            var allOrders = pagedResponse!.Items;
+            var updateOk = await _client.PatchAsJsonAsync(
+                $"/api/v1/orders/{order1.Id}/items/{product.Id}/quantity", new { Increment = 2 });
+            updateOk.EnsureSuccessStatusCode();
 
-            Assert.NotEmpty(allOrders);
+            var afterIncrement = await GetOrderAsync(order1.Id);
+            Assert.Equal(7, afterIncrement.Items.First().Quantity);
+            Assert.Equal(7000, afterIncrement.TotalPaid);
+            Assert.Equal(7000, afterIncrement.TotalValue);
 
-            var fetchedOrder = allOrders.FirstOrDefault(o => o.Id == order1!.Id);
-            Assert.NotNull(fetchedOrder);
-            Assert.Equal("Cliente Teste Flow", fetchedOrder.ClientName); 
-            Assert.Equal("Produto Teste", fetchedOrder.Items.First().ProductName); 
-
-            Console.WriteLine("5th TEST: Completed! Names are verified.");
-
-            // 6th TEST: Edit quantity
-            Console.WriteLine("6th TEST: starting...");
-            var updateOk = await _client.PatchAsJsonAsync($"/api/v1/orders/{order1!.Id}/items/{productId}/quantity", new { Increment = 2 });
-            Assert.True(updateOk.IsSuccessStatusCode);
-            Console.WriteLine("6th TEST: Case 1 completed!");
-
-            var updateError = await _client.PatchAsJsonAsync($"/api/v1/orders/{order2!.Id}/items/{productId}/quantity", new { Increment = -7 });
+            var updateError = await _client.PatchAsJsonAsync(
+                $"/api/v1/orders/{order2.Id}/items/{product.Id}/quantity", new { Increment = -7 });
             Assert.Equal(HttpStatusCode.BadRequest, updateError.StatusCode);
-            Console.WriteLine("6th TEST: Case 2 completed!");
-            Console.WriteLine("6th TEST: Completed!");
 
-            // 7th TEST: Cancel just 1 item
-            Console.WriteLine("7th TEST: Starting...");
-            var cancelItem = await _client.PatchAsync($"/api/v1/orders/{order1.Id}/items/{productId}/cancel", null);
+            var order2Unchanged = await GetOrderAsync(order2.Id);
+            Assert.Equal(5, order2Unchanged.Items.First().Quantity);
+            Assert.Equal(5000, order2Unchanged.TotalPaid);
+
+            var cancelItem = await _client.PatchAsync(
+                $"/api/v1/orders/{order1.Id}/items/{product.Id}/cancel", null);
             cancelItem.EnsureSuccessStatusCode();
-            Console.WriteLine("7th TEST: Completed!");
 
-            // 8th TEST: Cancel entire order
-            Console.WriteLine("8th TEST: Starting...");
+            var afterCancelItem = await GetOrderAsync(order1.Id);
+            Assert.True(afterCancelItem.Items.First().ItemCanceled);
+            Assert.Equal(0, afterCancelItem.TotalPaid);
+            Assert.Equal(0, afterCancelItem.TotalValue);
+
             var cancelOrder = await _client.PatchAsync($"/api/v1/orders/{order1.Id}/cancel", null);
             cancelOrder.EnsureSuccessStatusCode();
-            Console.WriteLine("8th TEST: Completed!");
 
-            // 9th TEST: Complete order
-            Console.WriteLine("9th TEST: Starting...");
+            var afterCancel = await GetOrderAsync(order1.Id);
+            Assert.Equal(OrderStatus.Canceled, afterCancel.Status);
+
             var completeOrder = await _client.PatchAsync($"/api/v1/orders/{order2.Id}/complete", null);
             completeOrder.EnsureSuccessStatusCode();
-            Console.WriteLine("9th TEST: Completed!");
+
+            var afterComplete = await GetOrderAsync(order2.Id);
+            Assert.Equal(OrderStatus.Completed, afterComplete.Status);
+            Assert.Equal(5000, afterComplete.TotalPaid);
         }
     }
 }

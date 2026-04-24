@@ -256,7 +256,7 @@ Returns 400 if product belongs to an existing order.
 
 ## Dashboard
 
-All accept query params: `startDate`, `endDate` (ISO8601), `status` (OrderStatus string).
+All accept query params: `createdAtFrom`, `createdAtTo` (UTC ISO8601, exclusive end), `status` (OrderStatus string). Legacy `startDate`/`endDate` date filters are still accepted.
 
 ### GET /dashboard/summary
 ```json

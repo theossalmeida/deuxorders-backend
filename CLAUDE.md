@@ -140,10 +140,10 @@ All routes are prefixed with `/api/v1/`. All endpoints except `POST /auth/login`
 - `GET /products/dropdown?status=` — Returns `{ id, name, price }` list for UI dropdowns.
 
 **Dashboard**
-- `GET /dashboard/summary?startDate=&endDate=&status=` — Aggregate metrics (revenue, discounts, order counts).
-- `GET /dashboard/revenue-over-time?startDate=&endDate=&status=` — Daily revenue data points.
-- `GET /dashboard/top-products?startDate=&endDate=&status=&limit=10`
-- `GET /dashboard/top-clients?startDate=&endDate=&status=&limit=10`
+- `GET /dashboard/summary?createdAtFrom=&createdAtTo=&status=` — Aggregate metrics (revenue, discounts, order counts).
+- `GET /dashboard/revenue-over-time?createdAtFrom=&createdAtTo=&status=` — Daily revenue data points.
+- `GET /dashboard/top-products?createdAtFrom=&createdAtTo=&status=&limit=10`
+- `GET /dashboard/top-clients?createdAtFrom=&createdAtTo=&status=&limit=10`
 - `GET /dashboard/export?from=&to=&status=&format=csv|pdf` — Export via QuestPDF (PDF) or custom CSV writer. Excludes canceled items.
 
 Dashboard repository queries use `AsNoTracking()`. Canceled orders are always counted separately regardless of status filter.
@@ -152,7 +152,7 @@ Dashboard repository queries use `AsNoTracking()`. Canceled orders are always co
 
 **Cash Flow**
 - `POST /cash/entries` — Create income or expense entry.
-- `GET /cash/entries?startDate=&endDate=&type=` — Paginated list filtered by date range and type.
+- `GET /cash/entries?from=&to=&type=` — Paginated list filtered by date range and type.
 - `GET /cash/balance` — Running balance (sum of all entries up to today).
 - `POST /cash/entries/{id}/pay` / `POST /cash/entries/{id}/unpay` — Mark entry paid/unpaid.
 - `GET /cash/audit/{entryId}` — Audit log for a specific entry (append-only via `CashFlowAuditInterceptor`).
