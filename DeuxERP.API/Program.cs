@@ -103,39 +103,73 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
 });
 builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
 
-builder.Services.AddOptions<VapidSettings>()
-    .Configure(settings =>
-    {
-        settings.Subject = builder.Configuration["VAPID_SUBJECT"]
-            ?? "mailto:admin@deuxcerie.com.br";
-        settings.PublicKey = builder.Configuration["VAPID_PUBLIC_KEY"]
-            ?? throw new Exception("VAPID_PUBLIC_KEY not set");
-        settings.PrivateKey = builder.Configuration["VAPID_PRIVATE_KEY"]
-            ?? throw new Exception("VAPID_PRIVATE_KEY not set");
-    })
-    .Validate(settings => !string.IsNullOrWhiteSpace(settings.Subject), "VAPID_SUBJECT not set")
-    .Validate(settings => !string.IsNullOrWhiteSpace(settings.PublicKey), "VAPID_PUBLIC_KEY not set")
-    .Validate(settings => !string.IsNullOrWhiteSpace(settings.PrivateKey), "VAPID_PRIVATE_KEY not set")
-    .ValidateOnStart();
+var vapidSubject = builder.Configuration["VAPID_SUBJECT"] ?? "mailto:admin@deuxcerie.com.br";
+var vapidPublicKey = builder.Configuration["VAPID_PUBLIC_KEY"];
+var vapidPrivateKey = builder.Configuration["VAPID_PRIVATE_KEY"];
+var pushEnabled = GetOptionalConfigurationFlag(builder.Configuration, "Push:Enabled", "PUSH_ENABLED");
+var pushRequired = GetConfigurationFlag(builder.Configuration, "Push:Required", "PUSH_REQUIRED");
+var pushExplicitlyDisabled = pushEnabled == false && !pushRequired;
+var hasAnyVapidConfig =
+    !string.IsNullOrWhiteSpace(builder.Configuration["VAPID_SUBJECT"]) ||
+    !string.IsNullOrWhiteSpace(vapidPublicKey) ||
+    !string.IsNullOrWhiteSpace(vapidPrivateKey);
+var hasVapidKeys = !string.IsNullOrWhiteSpace(vapidPublicKey) && !string.IsNullOrWhiteSpace(vapidPrivateKey);
+var pushRequested = pushEnabled == true || pushRequired || (!pushExplicitlyDisabled && hasAnyVapidConfig);
 
-builder.Services.AddSingleton(sp =>
+if (pushRequested && (!hasVapidKeys || string.IsNullOrWhiteSpace(vapidSubject)))
 {
-    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<VapidSettings>>().Value;
-    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    throw new InvalidOperationException(
+        "Push notifications are enabled or partially configured, but VAPID_SUBJECT, VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are required.");
+}
 
-    return new PushServiceClient(httpClientFactory.CreateClient("WebPush"))
-    {
-        DefaultAuthentication = new VapidAuthentication(
-            publicKey: options.PublicKey,
-            privateKey: options.PrivateKey)
+if (!pushExplicitlyDisabled && hasVapidKeys)
+{
+    builder.Services.AddSingleton<IPushNotificationAvailability>(
+        new PushNotificationAvailability(isAvailable: true, disabledReason: null));
+
+    builder.Services.AddOptions<VapidSettings>()
+        .Configure(settings =>
         {
-            Subject = options.Subject
-        },
-        DefaultAuthenticationScheme = VapidAuthenticationScheme.Vapid,
-        AutoRetryAfter = true,
-        MaxRetriesAfter = 3
-    };
-});
+            settings.Subject = vapidSubject;
+            settings.PublicKey = vapidPublicKey!;
+            settings.PrivateKey = vapidPrivateKey!;
+        })
+        .Validate(settings => !string.IsNullOrWhiteSpace(settings.Subject), "VAPID_SUBJECT not set")
+        .Validate(settings => !string.IsNullOrWhiteSpace(settings.PublicKey), "VAPID_PUBLIC_KEY not set")
+        .Validate(settings => !string.IsNullOrWhiteSpace(settings.PrivateKey), "VAPID_PRIVATE_KEY not set")
+        .ValidateOnStart();
+
+    builder.Services.AddSingleton(sp =>
+    {
+        var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<VapidSettings>>().Value;
+        var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+
+        return new PushServiceClient(httpClientFactory.CreateClient("WebPush"))
+        {
+            DefaultAuthentication = new VapidAuthentication(
+                publicKey: options.PublicKey,
+                privateKey: options.PrivateKey)
+            {
+                Subject = options.Subject
+            },
+            DefaultAuthenticationScheme = VapidAuthenticationScheme.Vapid,
+            AutoRetryAfter = true,
+            MaxRetriesAfter = 3
+        };
+    });
+
+    builder.Services.AddScoped<IPushNotificationService, WebPushNotificationService>();
+}
+else
+{
+    builder.Services.AddSingleton<IPushNotificationAvailability>(
+        new PushNotificationAvailability(
+            isAvailable: false,
+            disabledReason: pushExplicitlyDisabled
+                ? "Push notifications are disabled by configuration."
+                : "Push notifications are disabled because VAPID keys are not configured."));
+    builder.Services.AddSingleton<IPushNotificationService, NoOpPushNotificationService>();
+}
 
 // CORS Policy
 builder.Services.AddCors(options =>
@@ -176,7 +210,6 @@ builder.Services.AddScoped<IDomainEventHandler<OrderPaidEvent>, OrderPaidEventHa
 builder.Services.AddScoped<IDomainEventHandler<OrderPaymentReversedEvent>, OrderPaymentReversedEventHandler>();
 builder.Services.AddScoped<DeuxERP.Domain.Interfaces.ICashFlowRepository, DeuxERP.Infrastructure.Repositories.CashFlowRepository>();
 builder.Services.AddScoped<DeuxERP.Application.Services.CashFlowService>();
-builder.Services.AddScoped<IPushNotificationService, WebPushNotificationService>();
 builder.Services.AddHostedService<DailyOrderReminderService>();
 
 // Services config
@@ -275,3 +308,15 @@ if (builder.Configuration.GetValue("Database:RunMigrationsAtStartup", isDevMode)
 }
 
 app.Run();
+
+static bool GetConfigurationFlag(IConfiguration configuration, string key, string environmentKey)
+{
+    var value = configuration[key] ?? configuration[environmentKey];
+    return bool.TryParse(value, out var enabled) && enabled;
+}
+
+static bool? GetOptionalConfigurationFlag(IConfiguration configuration, string key, string environmentKey)
+{
+    var value = configuration[key] ?? configuration[environmentKey];
+    return bool.TryParse(value, out var enabled) ? enabled : null;
+}

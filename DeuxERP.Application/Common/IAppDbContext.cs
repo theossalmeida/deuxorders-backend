@@ -25,6 +25,7 @@ public interface IAppDbContext
     DbSet<ProductRecipeItem> ProductRecipeItems { get; }
     DbSet<OrderReferenceUpload> OrderReferenceUploads { get; }
     DbSet<PushSubscription> PushSubscriptions { get; }
+    DbSet<DailyReminderLog> DailyReminderLogs { get; }
     DatabaseFacade Database { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

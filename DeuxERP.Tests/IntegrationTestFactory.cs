@@ -73,6 +73,9 @@ namespace DeuxERP.Tests
             {
                 services.RemoveAll<IStorageService>();
                 services.AddSingleton<IStorageService, NullStorageService>();
+                services.RemoveAll<IPushNotificationAvailability>();
+                services.AddSingleton<IPushNotificationAvailability>(
+                    new DeuxERP.Infrastructure.Notifications.PushNotificationAvailability(isAvailable: true, disabledReason: null));
                 services.RemoveAll<IPushNotificationService>();
                 services.AddSingleton<IPushNotificationService, NullPushNotificationService>();
 

@@ -1,9 +1,12 @@
 using DeuxERP.Application.Notifications;
+using DeuxERP.Infrastructure.Data;
 using DeuxERP.Domain.Interfaces;
 using DeuxERP.Domain.Notifications;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace DeuxERP.Infrastructure.Notifications;
 
@@ -47,8 +50,19 @@ public sealed class DailyOrderReminderService : BackgroundService
         try
         {
             using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var orderRepository = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
             var push = scope.ServiceProvider.GetRequiredService<IPushNotificationService>();
+
+            var reminder = await TryClaimReminderAsync(db, ToDailyReminderKind(kind), localDate, ct);
+            if (reminder == null)
+            {
+                _logger.LogDebug(
+                    "Daily order reminder {ReminderKind} for {LocalDate} skipped because it was already claimed.",
+                    kind,
+                    localDate);
+                return;
+            }
 
             var targetDate = kind == ReminderKind.DueToday
                 ? localDate
@@ -68,6 +82,9 @@ public sealed class DailyOrderReminderService : BackgroundService
                 BuildBody(orders.Count, targetDate),
                 "/orders",
                 ct);
+
+            reminder.MarkSent();
+            await db.SaveChangesAsync(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -78,6 +95,35 @@ public sealed class DailyOrderReminderService : BackgroundService
             _logger.LogWarning(ex, "Daily order reminder failed for {ReminderKind} on {LocalDate}.", kind, localDate);
         }
     }
+
+    private static async Task<DailyReminderLog?> TryClaimReminderAsync(
+        ApplicationDbContext db,
+        DailyReminderKind kind,
+        DateOnly localDate,
+        CancellationToken ct)
+    {
+        var reminder = DailyReminderLog.Claim(localDate, kind);
+        db.DailyReminderLogs.Add(reminder);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return reminder;
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            db.Entry(reminder).State = EntityState.Detached;
+            return null;
+        }
+    }
+
+    private static bool IsUniqueConstraintViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+
+    private static DailyReminderKind ToDailyReminderKind(ReminderKind kind) =>
+        kind == ReminderKind.DueToday
+            ? DailyReminderKind.DueToday
+            : DailyReminderKind.DueTomorrow;
 
     private ReminderRun GetNextRun(DateTimeOffset utcNow)
     {

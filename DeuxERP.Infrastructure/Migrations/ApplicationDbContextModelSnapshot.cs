@@ -259,6 +259,34 @@ namespace DeuxERP.Infrastructure.Migrations
                     b.ToTable("product_recipe_items", "inventory");
                 });
 
+            modelBuilder.Entity("DeuxERP.Domain.Notifications.DailyReminderLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ClaimedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateOnly>("LocalDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LocalDate", "Kind")
+                        .IsUnique();
+
+                    b.ToTable("daily_reminder_logs", "notifications");
+                });
+
             modelBuilder.Entity("DeuxERP.Domain.Notifications.PushSubscription", b =>
                 {
                     b.Property<Guid>("Id")

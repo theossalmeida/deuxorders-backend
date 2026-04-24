@@ -55,6 +55,7 @@ namespace DeuxERP.Infrastructure.Data
         public DbSet<ProductRecipeItem> ProductRecipeItems { get; set; }
         public DbSet<OrderReferenceUpload> OrderReferenceUploads { get; set; }
         public DbSet<PushSubscription> PushSubscriptions { get; set; }
+        public DbSet<DailyReminderLog> DailyReminderLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -130,6 +131,15 @@ namespace DeuxERP.Infrastructure.Data
                 entity.Property(e => e.Auth).HasMaxLength(256).IsRequired();
                 entity.Property(e => e.DeviceLabel).HasMaxLength(200);
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
+            });
+
+            modelBuilder.Entity<DailyReminderLog>(entity =>
+            {
+                entity.ToTable("daily_reminder_logs", "notifications");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.LocalDate, e.Kind }).IsUnique();
+                entity.Property(e => e.LocalDate).HasColumnType("date");
+                entity.Property(e => e.Kind).HasConversion<string>().HasMaxLength(50).IsRequired();
             });
 
             modelBuilder.Entity<OrderItem>(entity =>
