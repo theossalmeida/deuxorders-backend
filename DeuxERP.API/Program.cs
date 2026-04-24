@@ -30,6 +30,7 @@ builder.Configuration.AddEnvironmentVariables();
 var runMigrationsOnly = args.Contains("--migrate", StringComparer.OrdinalIgnoreCase);
 var runMode = Environment.GetEnvironmentVariable("RUN_MODE") ?? "PROD";
 var isDevMode = runMode == "DEV";
+var disableRateLimiting = builder.Configuration.GetValue("DisableRateLimiting", false);
 
 var secret = builder.Configuration.GetValue<string>("JwtSettings:Secret")
              ?? throw new Exception("JWT Secret não encontrada!");
@@ -289,7 +290,10 @@ app.Use(async (context, next) =>
 // CORS
 app.UseCors("FrontendPolicy");
 
-app.UseRateLimiter();
+if (!disableRateLimiting)
+{
+    app.UseRateLimiter();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

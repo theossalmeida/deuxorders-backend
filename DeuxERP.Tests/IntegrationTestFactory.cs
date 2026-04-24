@@ -47,6 +47,11 @@ namespace DeuxERP.Tests
     {
         private readonly string _dbName = $"DeuxERP_Test_{Guid.NewGuid():N}";
 
+        public IntegrationTestFactory()
+        {
+            Environment.SetEnvironmentVariable("DisableRateLimiting", "true");
+        }
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Development");
@@ -63,7 +68,8 @@ namespace DeuxERP.Tests
                     { "JWT_AUDIENCE", "DeuxERP-client" },
                     { "VAPID_PUBLIC_KEY", "test-public-key" },
                     { "VAPID_PRIVATE_KEY", "test-private-key" },
-                    { "VAPID_SUBJECT", "mailto:test@example.com" }
+                    { "VAPID_SUBJECT", "mailto:test@example.com" },
+                    { "DisableRateLimiting", "true" }
                 };
 
                 config.AddInMemoryCollection(testConfig);
