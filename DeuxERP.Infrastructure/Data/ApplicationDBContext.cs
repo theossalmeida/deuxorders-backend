@@ -3,6 +3,7 @@ using DeuxERP.Domain.Cash;
 using DeuxERP.Domain.Common;
 using DeuxERP.Domain.Identity;
 using DeuxERP.Domain.Inventory;
+using DeuxERP.Domain.Notifications;
 using DeuxERP.Domain.Payments;
 using DeuxERP.Domain.Sales;
 using DeuxERP.Domain.Storage;
@@ -53,6 +54,7 @@ namespace DeuxERP.Infrastructure.Data
         public DbSet<InventoryMaterial> InventoryMaterials { get; set; }
         public DbSet<ProductRecipeItem> ProductRecipeItems { get; set; }
         public DbSet<OrderReferenceUpload> OrderReferenceUploads { get; set; }
+        public DbSet<PushSubscription> PushSubscriptions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -112,6 +114,22 @@ namespace DeuxERP.Infrastructure.Data
                 entity.HasIndex(e => new { e.UserId, e.OrderId, e.ConsumedAt });
                 entity.Property(e => e.ObjectKey).HasMaxLength(200).IsRequired();
                 entity.Property(e => e.ContentType).HasMaxLength(100).IsRequired();
+            });
+
+            modelBuilder.Entity<PushSubscription>(entity =>
+            {
+                entity.ToTable("push_subscriptions", "notifications");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.Endpoint).IsUnique();
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => e.IsActive)
+                    .HasDatabaseName("IX_push_subscriptions_active")
+                    .HasFilter("\"IsActive\" = true");
+                entity.Property(e => e.Endpoint).HasMaxLength(2048).IsRequired();
+                entity.Property(e => e.P256dh).HasMaxLength(256).IsRequired();
+                entity.Property(e => e.Auth).HasMaxLength(256).IsRequired();
+                entity.Property(e => e.DeviceLabel).HasMaxLength(200);
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
             });
 
             modelBuilder.Entity<OrderItem>(entity =>

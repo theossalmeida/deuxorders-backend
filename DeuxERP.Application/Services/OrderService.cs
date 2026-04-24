@@ -1,7 +1,10 @@
 using DeuxERP.Application.Common;
 using DeuxERP.Application.DTOs;
+using DeuxERP.Application.Notifications;
+using DeuxERP.Domain.Notifications;
 using DeuxERP.Domain.Sales;
 using DeuxERP.Domain.Storage;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 
 namespace DeuxERP.Application.Services
@@ -11,15 +14,21 @@ namespace DeuxERP.Application.Services
         private readonly IAppDbContext _db;
         private readonly ICurrentUserAccessor _currentUser;
         private readonly InventoryService _inventoryService;
+        private readonly IPushNotificationService _push;
+        private readonly ILogger<OrderService> _logger;
 
         public OrderService(
             IAppDbContext db,
             ICurrentUserAccessor currentUser,
-            InventoryService inventoryService)
+            InventoryService inventoryService,
+            IPushNotificationService push,
+            ILogger<OrderService> logger)
         {
             _db = db;
             _currentUser = currentUser;
             _inventoryService = inventoryService;
+            _push = push;
+            _logger = logger;
         }
 
         public async Task<Order> CreateOrderAsync(CreateOrderRequest request)
@@ -55,6 +64,8 @@ namespace DeuxERP.Application.Services
 
             _db.Orders.Add(order);
             await _db.SaveChangesAsync();
+
+            await NotifyOrderCreatedAsync(order, client.Name);
 
             return order;
         }
@@ -253,6 +264,22 @@ namespace DeuxERP.Application.Services
                     throw new InvalidOperationException("Referência enviada pertence a outro usuário.");
 
                 session.Consume(orderId, now);
+            }
+        }
+
+        private async Task NotifyOrderCreatedAsync(Order order, string clientName)
+        {
+            try
+            {
+                await _push.SendToAllAsync(
+                    NotificationType.OrderCreated,
+                    "Novo pedido",
+                    $"{clientName} - {order.Items.Count} item(ns)",
+                    $"/orders/{order.Id}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to queue new order push notification for order {OrderId}.", order.Id);
             }
         }
     }

@@ -109,6 +109,22 @@ namespace DeuxERP.Infrastructure.Repositories
             return rows.ToDictionary(r => r.ClientId, r => (r.TotalOrders, r.TotalSpent));
         }
 
+        public async Task<IReadOnlyList<OrderDueSummary>> GetDueOnDateAsync(DateOnly date, CancellationToken ct = default)
+        {
+            var start = DateTime.SpecifyKind(date.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            var end = start.AddDays(1);
+
+            return await _context.Orders
+                .AsNoTracking()
+                .Where(o => o.DeliveryDate >= start
+                    && o.DeliveryDate < end
+                    && o.Status != OrderStatus.Canceled
+                    && o.Status != OrderStatus.Completed)
+                .OrderBy(o => o.DeliveryDate)
+                .Select(o => new OrderDueSummary(o.Id, o.Client.Name, o.TotalPaid))
+                .ToListAsync(ct);
+        }
+
         public async Task<ProductStats> GetProductStatsAsync(Guid productId, int year, int month, CancellationToken ct = default)
         {
             var firstDay = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);

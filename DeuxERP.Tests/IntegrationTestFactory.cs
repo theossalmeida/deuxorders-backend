@@ -1,4 +1,6 @@
 ﻿using DeuxERP.API.Services;
+using DeuxERP.Application.Notifications;
+using DeuxERP.Domain.Notifications;
 using DeuxERP.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
@@ -21,6 +23,24 @@ file sealed class NullStorageService : IStorageService
     public string GetPublicUrl(string objectKey) => $"https://cdn.example.com/{objectKey}";
 }
 
+file sealed class NullPushNotificationService : IPushNotificationService
+{
+    public Task SendToAllAsync(
+        NotificationType type,
+        string title,
+        string body,
+        string? actionUrl = null,
+        CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task SendToUserAsync(
+        Guid userId,
+        NotificationType type,
+        string title,
+        string body,
+        string? actionUrl = null,
+        CancellationToken ct = default) => Task.CompletedTask;
+}
+
 namespace DeuxERP.Tests
 {
     public class IntegrationTestFactory<TProgram> : WebApplicationFactory<TProgram> where TProgram : class
@@ -35,12 +55,15 @@ namespace DeuxERP.Tests
 
             builder.ConfigureAppConfiguration((context, config) =>
             {
-                var testConfig = new Dictionary<string, string>
+                var testConfig = new Dictionary<string, string?>
                 {
                     { "JWT_SECRET", testSecretKey },
                     { "JwtSettings:Secret", testSecretKey },
                     { "JWT_ISSUER", "DeuxERP-api" },
-                    { "JWT_AUDIENCE", "DeuxERP-client" }
+                    { "JWT_AUDIENCE", "DeuxERP-client" },
+                    { "VAPID_PUBLIC_KEY", "test-public-key" },
+                    { "VAPID_PRIVATE_KEY", "test-private-key" },
+                    { "VAPID_SUBJECT", "mailto:test@example.com" }
                 };
 
                 config.AddInMemoryCollection(testConfig);
@@ -50,6 +73,8 @@ namespace DeuxERP.Tests
             {
                 services.RemoveAll<IStorageService>();
                 services.AddSingleton<IStorageService, NullStorageService>();
+                services.RemoveAll<IPushNotificationService>();
+                services.AddSingleton<IPushNotificationService, NullPushNotificationService>();
 
                 services.RemoveAll(typeof(DbContextOptions<ApplicationDbContext>));
                 services.RemoveAll(typeof(DbContextOptions));

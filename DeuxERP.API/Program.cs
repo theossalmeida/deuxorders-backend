@@ -1,13 +1,17 @@
 ﻿using DeuxERP.API.Services;
 using DeuxERP.Application.Common;
+using DeuxERP.Application.Notifications;
 using DeuxERP.Domain.Interfaces;
 using DeuxERP.Domain.Sales.Events;
 using DeuxERP.Infrastructure.Cash.Handlers;
 using DeuxERP.Infrastructure.Data;
+using DeuxERP.Infrastructure.Notifications;
 using DeuxERP.Infrastructure.Repositories;
 using DeuxERP.Infrastructure.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Lib.Net.Http.WebPush;
+using Lib.Net.Http.WebPush.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -87,6 +91,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
 builder.Services.AddScoped<CashFlowAuditInterceptor>();
+builder.Services.AddHttpClient();
 
 builder.Services.AddOpenApi();
 
@@ -97,6 +102,40 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
     options.AddInterceptors(sp.GetRequiredService<CashFlowAuditInterceptor>());
 });
 builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
+
+builder.Services.AddOptions<VapidSettings>()
+    .Configure(settings =>
+    {
+        settings.Subject = builder.Configuration["VAPID_SUBJECT"]
+            ?? "mailto:admin@deuxcerie.com.br";
+        settings.PublicKey = builder.Configuration["VAPID_PUBLIC_KEY"]
+            ?? throw new Exception("VAPID_PUBLIC_KEY not set");
+        settings.PrivateKey = builder.Configuration["VAPID_PRIVATE_KEY"]
+            ?? throw new Exception("VAPID_PRIVATE_KEY not set");
+    })
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.Subject), "VAPID_SUBJECT not set")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.PublicKey), "VAPID_PUBLIC_KEY not set")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.PrivateKey), "VAPID_PRIVATE_KEY not set")
+    .ValidateOnStart();
+
+builder.Services.AddSingleton(sp =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<VapidSettings>>().Value;
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+
+    return new PushServiceClient(httpClientFactory.CreateClient("WebPush"))
+    {
+        DefaultAuthentication = new VapidAuthentication(
+            publicKey: options.PublicKey,
+            privateKey: options.PrivateKey)
+        {
+            Subject = options.Subject
+        },
+        DefaultAuthenticationScheme = VapidAuthenticationScheme.Vapid,
+        AutoRetryAfter = true,
+        MaxRetriesAfter = 3
+    };
+});
 
 // CORS Policy
 builder.Services.AddCors(options =>
@@ -137,6 +176,8 @@ builder.Services.AddScoped<IDomainEventHandler<OrderPaidEvent>, OrderPaidEventHa
 builder.Services.AddScoped<IDomainEventHandler<OrderPaymentReversedEvent>, OrderPaymentReversedEventHandler>();
 builder.Services.AddScoped<DeuxERP.Domain.Interfaces.ICashFlowRepository, DeuxERP.Infrastructure.Repositories.CashFlowRepository>();
 builder.Services.AddScoped<DeuxERP.Application.Services.CashFlowService>();
+builder.Services.AddScoped<IPushNotificationService, WebPushNotificationService>();
+builder.Services.AddHostedService<DailyOrderReminderService>();
 
 // Services config
 builder.Services.AddScoped<DeuxERP.Application.Services.OrderService>();

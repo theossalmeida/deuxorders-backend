@@ -1,6 +1,7 @@
 using DeuxERP.Domain.Cash;
 using DeuxERP.Domain.Identity;
 using DeuxERP.Domain.Inventory;
+using DeuxERP.Domain.Notifications;
 using DeuxERP.Domain.Payments;
 using DeuxERP.Domain.Sales;
 using DeuxERP.Domain.Storage;
@@ -23,6 +24,7 @@ public interface IAppDbContext
     DbSet<InventoryMaterial> InventoryMaterials { get; }
     DbSet<ProductRecipeItem> ProductRecipeItems { get; }
     DbSet<OrderReferenceUpload> OrderReferenceUploads { get; }
+    DbSet<PushSubscription> PushSubscriptions { get; }
     DatabaseFacade Database { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
