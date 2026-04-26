@@ -118,8 +118,7 @@ namespace DeuxERP.Infrastructure.Repositories
                 .AsNoTracking()
                 .Where(o => o.DeliveryDate >= start
                     && o.DeliveryDate < end
-                    && o.Status != OrderStatus.Canceled
-                    && o.Status != OrderStatus.Completed)
+                    && o.Status != OrderStatus.Canceled)
                 .OrderBy(o => o.DeliveryDate)
                 .Select(o => new OrderDueSummary(o.Id, o.Client.Name, o.TotalPaid))
                 .ToListAsync(ct);

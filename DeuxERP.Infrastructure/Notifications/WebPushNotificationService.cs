@@ -167,9 +167,7 @@ public sealed class WebPushNotificationService : IPushNotificationService
         };
 
     private static PushMessageUrgency GetUrgency(NotificationType type) =>
-        type is NotificationType.DailyDueToday or NotificationType.DailyDueTomorrow
-            ? PushMessageUrgency.Low
-            : PushMessageUrgency.Normal;
+        PushMessageUrgency.Normal;
 
     private static int GetTimeToLive(NotificationType type) =>
         type is NotificationType.DailyDueToday or NotificationType.DailyDueTomorrow
