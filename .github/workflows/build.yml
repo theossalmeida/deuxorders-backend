@@ -1,4 +1,4 @@
-name: Deux Orders CI
+name: DeuxERP CI
 
 on:
   push:
@@ -41,6 +41,7 @@ jobs:
     - name: Test
       env:
         JwtSettings__Secret: "ci-test-secret-placeholder-for-build-pipeline"
+        PUSH_ENABLED: "false"
       run: |
         dotnet test --configuration Release --no-build --verbosity normal \
           --logger "trx;LogFileName=test-results.trx" \
