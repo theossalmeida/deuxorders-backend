@@ -69,8 +69,6 @@ public sealed class DailyOrderReminderService : BackgroundService
                 : localDate.AddDays(1);
 
             var orders = await orderRepository.GetDueOnDateAsync(targetDate, ct);
-            if (orders.Count == 0)
-                return;
 
             var notificationType = kind == ReminderKind.DueToday
                 ? NotificationType.DailyDueToday
@@ -151,7 +149,10 @@ public sealed class DailyOrderReminderService : BackgroundService
 
     private static string BuildBody(int count, DateOnly targetDate)
     {
-        var noun = count == 1 ? "pedido pendente" : "pedidos pendentes";
+        if (count == 0)
+            return $"Não há pedidos para {targetDate:dd/MM/yyyy}.";
+
+        var noun = count == 1 ? "pedido" : "pedidos";
         return $"{count} {noun} para {targetDate:dd/MM/yyyy}.";
     }
 
