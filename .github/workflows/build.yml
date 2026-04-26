@@ -44,7 +44,7 @@ jobs:
         PUSH_ENABLED: "false"
       run: |
         dotnet test --configuration Release --no-build --verbosity normal \
-          --logger "trx;LogFileName=test-results.trx" \
+          --logger "trx" \
           --results-dir ./test-results
 
     - name: Upload test results
@@ -52,7 +52,7 @@ jobs:
       if: always()
       with:
         name: test-results
-        path: ./test-results/*.trx
+        path: ./test-results/**/*.trx
         retention-days: 7
 
     - name: Test Report
@@ -60,5 +60,5 @@ jobs:
       if: always()
       with:
         name: xUnit Test Results
-        path: "./test-results/*.trx"
+        path: "./test-results/**/*.trx"
         reporter: dotnet-trx
