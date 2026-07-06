@@ -121,7 +121,7 @@ public class ClientController : ControllerBase
         {
             var result = await _orderRepository.GetByClientAsync(id, page, size, ct);
             pagedOrders = new PagedOrdersResponse(
-                result.Items.Select(order => order.ToResponse(client.Name, null)).ToList(),
+                result.Items.Select(order => order.ToResponse(client.Name, client.Mobile, null)).ToList(),
                 result.TotalCount,
                 result.PageNumber,
                 result.PageSize
@@ -155,7 +155,7 @@ public class ClientController : ControllerBase
 
         return Ok(new
         {
-            items = result.Items.Select(order => order.ToResponse(order.Client?.Name ?? "", null)).ToList(),
+            items = result.Items.Select(order => order.ToResponse(order.Client?.Name ?? "", order.Client?.Mobile, null)).ToList(),
             totalCount = result.TotalCount,
             pageNumber = result.PageNumber,
             pageSize = result.PageSize

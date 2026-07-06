@@ -6,7 +6,7 @@ namespace DeuxERP.Application.Mapping
 {
     public static class DtoMappingExtensions
     {
-        public static OrderResponse ToResponse(this Order order, string clientName = "", List<string>? signedReferenceUrls = null)
+        public static OrderResponse ToResponse(this Order order, string clientName = "", string? clientMobile = null, List<string>? signedReferenceUrls = null)
         {
             return new OrderResponse(
                 order.Id,
@@ -14,6 +14,7 @@ namespace DeuxERP.Application.Mapping
                 order.Status,
                 order.ClientId,
                 clientName,
+                clientMobile,
                 (long)order.TotalPaid,
                 (long)order.TotalValue,
                 signedReferenceUrls,

@@ -72,7 +72,7 @@ namespace DeuxERP.API.Controllers
             }
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));
+            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, order.Client?.Mobile, signedUrls));
         }
 
         [HttpPost("references/presigned-url")]
@@ -109,7 +109,7 @@ namespace DeuxERP.API.Controllers
             return CreatedAtAction(
                 nameof(GetById),
                 new { id = responseOrder.Id },
-                responseOrder.ToResponse(responseOrder.Client?.Name ?? string.Empty, signedUrls));
+                responseOrder.ToResponse(responseOrder.Client?.Name ?? string.Empty, responseOrder.Client?.Mobile, signedUrls));
         }
 
         [HttpPut("{id}")]
@@ -120,7 +120,7 @@ namespace DeuxERP.API.Controllers
             if (responseOrder == null) return NotFound();
 
             var signedUrls = _storageService.GetSignedReadUrls(responseOrder.References);
-            var response = responseOrder.ToResponse(responseOrder.Client?.Name ?? "Cliente não encontrado", signedUrls);
+            var response = responseOrder.ToResponse(responseOrder.Client?.Name ?? "Cliente não encontrado", responseOrder.Client?.Mobile, signedUrls);
 
             if (warnings.Count > 0)
                 return Ok(new { response, warnings });
@@ -137,7 +137,7 @@ namespace DeuxERP.API.Controllers
             order = await _orderService.CompleteAsync(order);
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", order.Client?.Mobile, signedUrls));
         }
 
         [HttpPatch("{id}/cancel")]
@@ -149,7 +149,7 @@ namespace DeuxERP.API.Controllers
             order = await _orderService.CancelAsync(order);
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", order.Client?.Mobile, signedUrls));
         }
 
         [HttpPatch("{id}/items/{productId}/cancel")]
@@ -164,7 +164,7 @@ namespace DeuxERP.API.Controllers
             order = await _orderService.CancelItemAsync(order, productId);
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", signedUrls));
+            return Ok(order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", order.Client?.Mobile, signedUrls));
         }
 
         [HttpPatch("{id}/items/{productId}/quantity")]
@@ -178,7 +178,7 @@ namespace DeuxERP.API.Controllers
 
             var (updatedOrder, warnings) = await _orderService.UpdateItemQuantityAsync(order, productId, request.Increment);
             var signedUrls = _storageService.GetSignedReadUrls(updatedOrder.References);
-            var response = updatedOrder.ToResponse(updatedOrder.Client?.Name ?? "Cliente não encontrado", signedUrls);
+            var response = updatedOrder.ToResponse(updatedOrder.Client?.Name ?? "Cliente não encontrado", updatedOrder.Client?.Mobile, signedUrls);
 
             if (warnings.Count > 0)
                 return Ok(new { response, warnings });
@@ -193,7 +193,7 @@ namespace DeuxERP.API.Controllers
             if (order == null) return NotFound();
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));
+            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, order.Client?.Mobile, signedUrls));
         }
 
         [HttpGet("all")]
@@ -217,7 +217,7 @@ namespace DeuxERP.API.Controllers
             var result = await _repository.GetAllAsync(page, size, status, utcFrom, utcTo, search);
 
             var dtos = result.Items.Select(order =>
-                order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", _storageService.GetSignedReadUrls(order.References))
+                order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", order.Client?.Mobile, _storageService.GetSignedReadUrls(order.References))
             ).ToList();
 
             return Ok(new
@@ -239,7 +239,7 @@ namespace DeuxERP.API.Controllers
             order = await _orderService.MarkAsPaidAsync(order);
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));
+            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, order.Client?.Mobile, signedUrls));
         }
 
         [HttpPatch("{id}/unpay")]
@@ -252,7 +252,7 @@ namespace DeuxERP.API.Controllers
             order = await _orderService.UnmarkAsPaidAsync(order, request.Reason);
 
             var signedUrls = _storageService.GetSignedReadUrls(order.References);
-            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, signedUrls));
+            return Ok(order.ToResponse(order.Client?.Name ?? string.Empty, order.Client?.Mobile, signedUrls));
         }
 
         [HttpDelete("{id}")]

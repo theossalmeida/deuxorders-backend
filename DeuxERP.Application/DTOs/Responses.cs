@@ -9,6 +9,7 @@ namespace DeuxERP.Application.DTOs
         OrderStatus Status,
         Guid ClientId,
         string ClientName,
+        string? ClientMobile,
         long TotalPaid,
         long TotalValue,
         List<string>? References,
