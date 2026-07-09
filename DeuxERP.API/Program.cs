@@ -174,15 +174,18 @@ else
 }
 
 // CORS Policy
+var allowedOriginsRaw = builder.Configuration["ALLOWED_ORIGINS"];
+var allowedOrigins = !string.IsNullOrWhiteSpace(allowedOriginsRaw)
+    ? allowedOriginsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    : isDevMode
+        ? new[] { "http://localhost:3000", "http://127.0.0.1:3000" }
+        : throw new Exception("ALLOWED_ORIGINS não configurado!");
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "https://orders.deuxcerie.com.br"
-              )
+        policy.WithOrigins(allowedOrigins)
               .WithHeaders("Authorization", "Content-Type")
               .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
               .AllowCredentials();

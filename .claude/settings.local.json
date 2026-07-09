@@ -23,7 +23,16 @@
       "Bash(git tag *)",
       "Bash(xxd)",
       "Bash(openssl rand *)",
-      "Bash(fly secrets *)"
+      "Bash(fly secrets *)",
+      "Bash(fly apps *)",
+      "Bash(fly deploy *)",
+      "Bash(fly ssh *)",
+      "Bash(fly logs *)",
+      "Bash(fly status *)",
+      "Bash(wait)",
+      "Bash(chmod +x *)",
+      "Bash(brew list *)",
+      "Bash(brew info *)"
     ]
   }
 }
