@@ -2,62 +2,109 @@ name: DeuxERP CI
 
 on:
   push:
-    branches: [ "*" ]
+    branches: ["**"]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+  schedule:
+    # 06:00 America/Sao_Paulo (09:00 UTC). GitHub schedules use UTC.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
 
 jobs:
-  build-and-test:
+  test:
+    name: Build, unit and integration tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     permissions:
       contents: read
       checks: write
       pull-requests: write
 
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: deuxerp_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d deuxerp_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      JwtSettings__Secret: ci-test-secret-placeholder-for-build-pipeline
+      PUSH_ENABLED: "false"
+      ALLOWED_ORIGINS: http://localhost
+      TEST_DATABASE_CONNECTION_STRING: Host=localhost;Port=5432;Database=deuxerp_tests;Username=postgres;Password=postgres
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
 
-    - name: Cache NuGet packages
-      uses: actions/cache@v4
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
 
-    - name: Restore dependencies
-      run: dotnet restore
+      - name: Restore dependencies
+        run: dotnet restore DeuxERP.slnx
 
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
+      - name: Build
+        run: dotnet build DeuxERP.slnx --configuration Release --no-restore
 
-    - name: Test
-      env:
-        JwtSettings__Secret: "ci-test-secret-placeholder-for-build-pipeline"
-        PUSH_ENABLED: "false"
-      run: |
-        dotnet test --configuration Release --no-build --verbosity normal \
-          --logger "trx"
+      - name: Run unit tests
+        run: >-
+          dotnet test DeuxERP.UnitTests/DeuxERP.UnitTests.csproj
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=unit-tests.trx"
+          --logger "junit;LogFilePath=TestResults/unit-tests.xml"
+          --collect "XPlat Code Coverage"
 
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-results
-        path: "**/TestResults/**/*.trx"
-        retention-days: 7
+      - name: Run PostgreSQL integration tests
+        if: ${{ !cancelled() }}
+        run: >-
+          dotnet test DeuxERP.Tests/DeuxERP.Tests.csproj
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=integration-tests.trx"
+          --logger "junit;LogFilePath=TestResults/integration-tests.xml"
+          --collect "XPlat Code Coverage"
 
-    - name: Test Report
-      uses: dorny/test-reporter@31a54ee7ebcacc03a09ea97a7e5465a47b84aea5
-      if: always()
-      with:
-        name: xUnit Test Results
-        path: "**/TestResults/**/*.trx"
-        reporter: dotnet-trx
+      - name: Upload test results and coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ github.run_attempt }}
+          path: |
+            **/TestResults/**/*.trx
+            **/TestResults/**/*.xml
+            **/TestResults/**/coverage.cobertura.xml
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Publish test report
+        uses: dorny/test-reporter@31a54ee7ebcacc03a09ea97a7e5465a47b84aea5
+        if: always()
+        with:
+          name: xUnit test results
+          path: "**/TestResults/**/*.trx"
+          reporter: dotnet-trx
+          fail-on-error: true

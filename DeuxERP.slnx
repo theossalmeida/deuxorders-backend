@@ -4,4 +4,5 @@
   <Project Path="DeuxERP.Domain/DeuxERP.Domain.csproj" />
   <Project Path="DeuxERP.Infrastructure/DeuxERP.Infrastructure.csproj" />
   <Project Path="DeuxERP.Tests/DeuxERP.Tests.csproj" />
+  <Project Path="DeuxERP.UnitTests/DeuxERP.UnitTests.csproj" />
 </Solution>

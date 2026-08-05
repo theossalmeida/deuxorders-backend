@@ -50,6 +50,7 @@ namespace DeuxERP.Tests
         public IntegrationTestFactory()
         {
             Environment.SetEnvironmentVariable("DisableRateLimiting", "true");
+            Environment.SetEnvironmentVariable("ALLOWED_ORIGINS", "http://localhost");
         }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -62,6 +63,7 @@ namespace DeuxERP.Tests
             {
                 var testConfig = new Dictionary<string, string?>
                 {
+                    { "ALLOWED_ORIGINS", "http://localhost" },
                     { "JWT_SECRET", testSecretKey },
                     { "JwtSettings:Secret", testSecretKey },
                     { "JWT_ISSUER", "DeuxERP-api" },
@@ -92,8 +94,16 @@ namespace DeuxERP.Tests
 
                 services.AddDbContext<ApplicationDbContext>(options =>
                 {
-                    options.UseInMemoryDatabase(_dbName);
-                    options.ConfigureWarnings(x => x.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
+                    var postgresConnection = Environment.GetEnvironmentVariable("TEST_DATABASE_CONNECTION_STRING");
+                    if (string.IsNullOrWhiteSpace(postgresConnection))
+                    {
+                        options.UseInMemoryDatabase(_dbName);
+                        options.ConfigureWarnings(x => x.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
+                    }
+                    else
+                    {
+                        options.UseNpgsql(postgresConnection);
+                    }
                 });
 
                 services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
@@ -105,6 +115,21 @@ namespace DeuxERP.Tests
                     options.TokenValidationParameters.ValidateAudience = false;
                 });
             });
+        }
+
+        protected override Microsoft.Extensions.Hosting.IHost CreateHost(Microsoft.Extensions.Hosting.IHostBuilder builder)
+        {
+            var host = base.CreateHost(builder);
+
+            if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TEST_DATABASE_CONNECTION_STRING")))
+            {
+                using var scope = host.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                db.Database.EnsureDeleted();
+                db.Database.Migrate();
+            }
+
+            return host;
         }
     }
 }
