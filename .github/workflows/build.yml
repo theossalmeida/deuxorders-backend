@@ -45,6 +45,10 @@ jobs:
       PUSH_ENABLED: "false"
       ALLOWED_ORIGINS: http://localhost
       TEST_DATABASE_CONNECTION_STRING: Host=localhost;Port=5432;Database=deuxerp_tests;Username=postgres;Password=postgres
+      XRAY_CLIENT_ID: ${{ secrets.XRAY_CLIENT_ID }}
+      XRAY_CLIENT_SECRET: ${{ secrets.XRAY_CLIENT_SECRET }}
+      XRAY_PROJECT_KEY: DEUX
+      XRAY_TEST_PLAN_KEY: DEUX-1
 
     steps:
       - name: Checkout code
@@ -101,10 +105,54 @@ jobs:
           retention-days: 30
 
       - name: Publish test report
-        uses: dorny/test-reporter@31a54ee7ebcacc03a09ea97a7e5465a47b84aea5
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
         if: always()
         with:
           name: xUnit test results
           path: "**/TestResults/**/*.trx"
           reporter: dotnet-trx
           fail-on-error: true
+
+      - name: Import test results into Xray Cloud
+        if: ${{ always() && github.event_name != 'pull_request' }}
+        shell: bash
+        run: |
+          if [[ -z "$XRAY_CLIENT_ID" || -z "$XRAY_CLIENT_SECRET" ]]; then
+            echo "Xray credentials are not configured; skipping result import."
+            exit 0
+          fi
+
+          xray_token="$(
+            jq -n \
+              --arg client_id "$XRAY_CLIENT_ID" \
+              --arg client_secret "$XRAY_CLIENT_SECRET" \
+              '{client_id: $client_id, client_secret: $client_secret}' |
+            curl --fail-with-body --silent --show-error \
+              --request POST \
+              --header "Content-Type: application/json" \
+              --data-binary @- \
+              "https://xray.cloud.getxray.app/api/v2/authenticate" |
+            tr -d '"'
+          )"
+          echo "::add-mask::$xray_token"
+
+          import_xray_report() {
+            local report="$1"
+
+            if [[ ! -f "$report" ]]; then
+              echo "Xray report was not generated: $report"
+              return 0
+            fi
+
+            echo "Importing $report into Xray"
+            curl --fail-with-body --silent --show-error \
+              --request POST \
+              --header "Authorization: Bearer $xray_token" \
+              --header "Content-Type: text/xml" \
+              --data-binary "@$report" \
+              "https://xray.cloud.getxray.app/api/v2/import/execution/junit?projectKey=${XRAY_PROJECT_KEY}&testPlanKey=${XRAY_TEST_PLAN_KEY}&revision=${GITHUB_SHA}"
+            echo
+          }
+
+          import_xray_report "DeuxERP.UnitTests/TestResults/unit-tests.xml"
+          import_xray_report "DeuxERP.Tests/TestResults/integration-tests.xml"
