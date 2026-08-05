@@ -2,6 +2,7 @@
 using DeuxERP.Application.Notifications;
 using DeuxERP.Domain.Notifications;
 using DeuxERP.Infrastructure.Data;
+using DeuxERP.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -14,13 +15,40 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
-file sealed class NullStorageService : IStorageService
+public sealed class RecordingStorageService : IStorageService
 {
-    public string GeneratePresignedUploadUrl(string objectKey, string contentType) => string.Empty;
-    public List<string>? GetSignedReadUrls(List<string>? objectKeys) => null;
-    public Task DeleteObjectAsync(string objectKey, CancellationToken ct = default) => Task.CompletedTask;
-    public Task<string> UploadFileAsync(Stream stream, string objectKey, string contentType, CancellationToken ct = default) => Task.FromResult(objectKey);
+    public bool FailUploads { get; set; }
+    public bool FailDeletes { get; set; }
+    public List<string> UploadedKeys { get; } = [];
+    public List<string> DeletedKeys { get; } = [];
+
+    public string GeneratePresignedUploadUrl(string objectKey, string contentType) => $"https://upload.example.com/{objectKey}";
+    public List<string>? GetSignedReadUrls(List<string>? objectKeys) =>
+        objectKeys?.Select(key => $"https://cdn.example.com/{key}").ToList();
+
+    public Task DeleteObjectAsync(string objectKey, CancellationToken ct = default)
+    {
+        if (FailDeletes) throw new InvalidOperationException("Simulated storage delete failure.");
+        DeletedKeys.Add(objectKey);
+        return Task.CompletedTask;
+    }
+
+    public Task<string> UploadFileAsync(Stream stream, string objectKey, string contentType, CancellationToken ct = default)
+    {
+        if (FailUploads) throw new InvalidOperationException("Simulated storage upload failure.");
+        UploadedKeys.Add(objectKey);
+        return Task.FromResult(objectKey);
+    }
+
     public string GetPublicUrl(string objectKey) => $"https://cdn.example.com/{objectKey}";
+
+    public void Reset()
+    {
+        FailUploads = false;
+        FailDeletes = false;
+        UploadedKeys.Clear();
+        DeletedKeys.Clear();
+    }
 }
 
 file sealed class NullPushNotificationService : IPushNotificationService
@@ -46,6 +74,7 @@ namespace DeuxERP.Tests
     public class IntegrationTestFactory<TProgram> : WebApplicationFactory<TProgram> where TProgram : class
     {
         private readonly string _dbName = $"DeuxERP_Test_{Guid.NewGuid():N}";
+        public RecordingStorageService Storage { get; } = new();
 
         public IntegrationTestFactory()
         {
@@ -80,7 +109,7 @@ namespace DeuxERP.Tests
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IStorageService>();
-                services.AddSingleton<IStorageService, NullStorageService>();
+                services.AddSingleton<IStorageService>(Storage);
                 services.RemoveAll<IPushNotificationAvailability>();
                 services.AddSingleton<IPushNotificationAvailability>(
                     new DeuxERP.Infrastructure.Notifications.PushNotificationAvailability(isAvailable: true, disabledReason: null));
@@ -92,7 +121,7 @@ namespace DeuxERP.Tests
                 services.RemoveAll(typeof(IDbContextOptionsConfiguration<ApplicationDbContext>));
                 services.RemoveAll(typeof(ApplicationDbContext));
 
-                services.AddDbContext<ApplicationDbContext>(options =>
+                services.AddDbContext<ApplicationDbContext>((sp, options) =>
                 {
                     var postgresConnection = Environment.GetEnvironmentVariable("TEST_DATABASE_CONNECTION_STRING");
                     if (string.IsNullOrWhiteSpace(postgresConnection))
@@ -104,6 +133,8 @@ namespace DeuxERP.Tests
                     {
                         options.UseNpgsql(postgresConnection);
                     }
+
+                    options.AddInterceptors(sp.GetRequiredService<CashFlowAuditInterceptor>());
                 });
 
                 services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>

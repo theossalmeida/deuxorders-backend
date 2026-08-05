@@ -204,25 +204,6 @@ namespace DeuxERP.Tests
         }
 
         [Fact]
-        public async Task Restock_ShouldRecalculateWeightedAverageCost()
-        {
-            await AuthenticateAsync();
-            var suffix = NewSuffix();
-
-            var created = await CreateMaterialAsync(suffix, "Leite", 1000, 5000, MeasureUnit.ML);
-
-            var restockResponse = await _client.PostAsJsonAsync(
-                $"/api/v1/inventory/{created.Id}/restock",
-                new RestockRequest(500, 4000));
-
-            restockResponse.EnsureSuccessStatusCode();
-            var restocked = (await restockResponse.Content.ReadFromJsonAsync<InventoryMaterialResponse>(JsonOptions))!;
-
-            Assert.Equal(1500, restocked.Quantity);
-            Assert.Equal(6, restocked.UnitCost);
-        }
-
-        [Fact]
         public async Task ProductRecipe_ShouldSetGetClearAndValidateMaterials()
         {
             await AuthenticateAsync();

@@ -69,6 +69,17 @@ namespace DeuxERP.Tests.Sales
             Assert.Equal(10, paged.Items.Count);
             Assert.Equal(25, paged.TotalCount);
             Assert.All(paged.Items, o => Assert.Equal(clientAId, o.ClientId));
+
+            var page2 = await (await _client.GetAsync($"/api/v1/clients/{clientAId}/orders?page=2&size=10"))
+                .Content.ReadFromJsonAsync<PagedOrderResponse>(JsonOptions);
+            var page3 = await (await _client.GetAsync($"/api/v1/clients/{clientAId}/orders?page=3&size=10"))
+                .Content.ReadFromJsonAsync<PagedOrderResponse>(JsonOptions);
+            Assert.Equal(10, page2!.Items.Count);
+            Assert.Equal(5, page3!.Items.Count);
+            Assert.All(page2.Items.Concat(page3.Items), o => Assert.Equal(clientAId, o.ClientId));
+
+            var allIds = paged.Items.Concat(page2.Items).Concat(page3.Items).Select(o => o.Id).ToList();
+            Assert.Equal(25, allIds.Distinct().Count());
         }
 
         [Fact]
@@ -81,28 +92,5 @@ namespace DeuxERP.Tests.Sales
             Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
         }
 
-        [Fact]
-        public async Task GetClientOrders_SecondPageHasNonOverlappingItems()
-        {
-            await AuthenticateAsync();
-            var suffix = DateTime.Now.Ticks.ToString().Substring(12);
-            var clientId = await CreateClientAsync(suffix);
-            var productId = await CreateProductAsync(suffix);
-
-            for (int i = 0; i < 15; i++)
-                await CreateOrderAsync(clientId, productId);
-
-            var page1 = await (await _client.GetAsync($"/api/v1/clients/{clientId}/orders?page=1&size=10"))
-                .Content.ReadFromJsonAsync<PagedOrderResponse>(JsonOptions);
-            var page2 = await (await _client.GetAsync($"/api/v1/clients/{clientId}/orders?page=2&size=10"))
-                .Content.ReadFromJsonAsync<PagedOrderResponse>(JsonOptions);
-
-            Assert.Equal(15, page1!.TotalCount);
-            Assert.Equal(10, page1.Items.Count);
-            Assert.Equal(5, page2!.Items.Count);
-
-            var page1Ids = page1.Items.Select(o => o.Id).ToHashSet();
-            Assert.All(page2.Items, o => Assert.DoesNotContain(o.Id, page1Ids));
-        }
     }
 }
