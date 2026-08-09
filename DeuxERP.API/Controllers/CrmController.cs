@@ -20,6 +20,8 @@ namespace DeuxERP.API.Controllers
         public async Task<IActionResult> GetList(
             CancellationToken ct,
             [FromQuery] string? search,
+            [FromQuery] DateTime? lastOrderFrom,
+            [FromQuery] DateTime? lastOrderTo,
             [FromQuery] int page = 1,
             [FromQuery] int size = 20)
         {
@@ -27,7 +29,7 @@ namespace DeuxERP.API.Controllers
             if (size < 1) size = 1;
             if (size > 500) size = 500;
 
-            var result = await _orderRepository.GetCrmSummariesAsync(page, size, search, ct);
+            var result = await _orderRepository.GetCrmSummariesAsync(page, size, search, lastOrderFrom, lastOrderTo, ct);
 
             return Ok(new
             {

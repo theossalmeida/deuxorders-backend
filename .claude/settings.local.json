@@ -32,7 +32,10 @@
       "Bash(wait)",
       "Bash(chmod +x *)",
       "Bash(brew list *)",
-      "Bash(brew info *)"
+      "Bash(brew info *)",
+      "Bash(flyctl tokens *)",
+      "Bash(git remote *)",
+      "Bash(gh secret *)"
     ]
   }
 }
