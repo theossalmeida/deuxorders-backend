@@ -46,4 +46,27 @@ namespace DeuxERP.Tests.DTOs
         int? TotalOrders,
         long? TotalSpent
     );
+
+    public record CrmLastOrderInfoResponse(
+        List<string> Products,
+        long TotalSpend
+    );
+
+    public record CrmClientSummaryResponse(
+        Guid ClientId,
+        string Name,
+        string? Mobile,
+        int OrderCount,
+        long AverageSpend,
+        long TotalSpend,
+        DateTime LastOrderDate,
+        CrmLastOrderInfoResponse LastOrderInfo
+    );
+
+    public record PagedCrmResponse(
+        List<CrmClientSummaryResponse> Items,
+        int TotalCount,
+        int PageNumber,
+        int PageSize
+    );
 }

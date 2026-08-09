@@ -1,0 +1,330 @@
+CONFLUENCE BACKEND PAGE — SETUP STEPS
+======================================
+
+1. In Confluence, open the space where the backend and frontend documentation
+   will live.
+
+2. Select Create, choose a blank page, and use this title:
+
+   DeuxERP — Backend Quality and Test Strategy
+
+3. Copy the content under "PAGE CONTENT" below and paste it into the page.
+
+4. In the "Live Xray information" section, insert the dynamic Jira lists:
+
+   a. Type /jira and select "Jira work items".
+   b. Select JQL search.
+   c. Paste the indicated query.
+   d. Select the columns listed below each query.
+   e. Insert the result into the page.
+
+5. Paste the Jira URL for DEUX-1 beside "Xray Test Plan" and select the Smart
+   Link card display.
+
+6. Replace the GitHub placeholders with links to the repository, Actions
+   workflow, TEST_PLAN.md, and TEST_REVIEW_2026-08-05.md.
+
+7. Publish the page. Add the labels "deuxerp", "backend", "quality", and
+   "automated-tests" so it can be found and reported on later.
+
+
+PAGE CONTENT
+============
+
+DeuxERP — Backend Quality and Test Strategy
+-------------------------------------------
+
+Purpose
+-------
+
+This page describes how the DeuxERP backend is validated and how failures are
+handled. The objective is confidence in API contracts, business rules,
+authorization, persistence, and operational behavior.
+
+Quality is measured by meaningful scenario and risk coverage. A high raw code
+coverage percentage is not the primary objective. Tests should cover distinct
+behaviors, edge cases, invalid operations, and important state transitions
+without unnecessarily repeating the same situation.
+
+
+Ownership and references
+------------------------
+
+Owner: Theo
+Application: DeuxERP backend
+Repository: [ADD GITHUB REPOSITORY LINK]
+GitHub Actions: [ADD ACTIONS WORKFLOW LINK]
+Jira project: DEUX
+Xray Test Plan: DEUX-1 — DeuxERP Backend Continuous Regression
+Technical test plan: [ADD LINK TO docs/TEST_PLAN.md IN GITHUB]
+Latest test review: [ADD LINK TO docs/TEST_REVIEW_2026-08-05.md IN GITHUB]
+
+
+Source-of-truth boundaries
+--------------------------
+
+Confluence documents the testing strategy, scope, business decisions, and
+failure-handling process.
+
+Xray stores the individual automated Tests, Test Sets, Test Plan, Test
+Executions, and execution results.
+
+GitHub stores the test implementation, workflow configuration, logs, and test
+artifacts.
+
+Jira Bugs track defects and corrective work.
+
+Individual automated tests should not be duplicated as separate Confluence
+pages. Their definition and current result belong in Xray, while this page
+explains how the complete quality system works.
+
+
+Current automated baseline
+--------------------------
+
+Unit tests: 18
+Integration tests: 68
+Total tests: 86
+Failed in the latest reviewed local baseline: 0
+Skipped in the latest reviewed local baseline: 0
+
+All current controller routes are exercised through automated scenarios. The
+suite uses lifecycle-oriented tests so that one deterministic setup can validate
+a successful operation, meaningful boundaries, persisted effects, and security
+rules without producing many shallow duplicate cases.
+
+The integration suite can use EF Core InMemory during local development, but the
+GitHub Actions PostgreSQL result is the authoritative integration signal.
+
+
+Test levels
+-----------
+
+Unit tests
+
+Project: DeuxERP.UnitTests
+
+Purpose: Validate domain behavior quickly without HTTP, PostgreSQL, clock waits,
+or external services.
+
+Representative scope:
+
+* Order totals and guards
+* Order payment behavior
+* Inventory weighted cost and material rules
+* Manual cash-entry rules
+* Product-client behavior
+* Storage reference validation
+
+
+Integration tests
+
+Project: DeuxERP.Tests
+
+Purpose: Exercise the application through HTTP and validate authentication,
+authorization, request validation, PostgreSQL persistence, migrations,
+relational constraints, and domain-event side effects.
+
+CI database: PostgreSQL 17
+
+Representative scope:
+
+* Authentication
+* Clients and products
+* Orders and order references
+* Inventory and recipes
+* Payments and cash flow
+* Dashboard aggregation and export
+* Push subscriptions and ownership
+* PostgreSQL integrity and concurrency
+
+
+Execution schedule
+------------------
+
+The GitHub Actions workflow runs:
+
+* After every push to any branch
+* For pull requests targeting main
+* Daily at 06:00 America/Sao_Paulo (09:00 UTC)
+* Manually through workflow_dispatch
+
+Each non-pull-request execution generates JUnit reports and imports them into
+Xray Cloud. The results are associated with Test Plan DEUX-1. Unit and
+integration reports may create separate Test Execution work items for the same
+workflow run.
+
+GitHub also publishes TRX test results, Cobertura coverage, and test artifacts.
+Artifacts are retained for 30 days.
+
+
+Quality coverage standard
+-------------------------
+
+For each endpoint or capability, select scenarios according to the risks that
+actually apply. Consider:
+
+* Successful operation and exact response contract
+* Required fields and meaningful boundary values
+* Invalid authentication
+* Insufficient role or resource ownership
+* Resource not found
+* Duplicate or conflicting operation
+* Invalid state transition
+* Database persistence and relational integrity
+* Monetary totals and idempotency
+* External-service failure and compensation
+* Side effects such as inventory, cash entries, and notifications
+
+Do not add separate tests for every validation clause when they prove the same
+behavior. Keep separate tests when failures represent different operational or
+business risks, especially payments, authorization, ownership, storage
+compensation, and relational integrity.
+
+
+Endpoint scenario coverage
+--------------------------
+
+Authentication
+
+Bootstrap registration, field validation, duplicate identity, and valid or
+invalid login.
+
+Clients
+
+Create, detail, update, status, dropdown, listing, statistics, order history,
+order eligibility, and deletion.
+
+Products
+
+Create, detail, update, status, dropdown, listing, search, image-failure
+compensation, recipes, statistics, and deletion.
+
+Orders
+
+Lifecycle, filters, totals, item mutations, terminal states, payment, references,
+and delete-as-cancel behavior.
+
+Inventory
+
+Material lifecycle, weighted restock, recipes and options, deduction, warnings,
+and restoration.
+
+Cash
+
+Authorization, create, get, update, audit, delete, soft-delete visibility, and
+payment/reversal idempotency.
+
+Dashboard
+
+Exact aggregate datasets, timeline, rankings, and filtered CSV export.
+
+Push notifications
+
+Subscribe, subscription status, ownership isolation, unsubscribe, and
+reactivation.
+
+
+Entry criteria
+--------------
+
+* The solution restores and compiles on .NET 10.
+* The PostgreSQL service is healthy and migrations apply.
+* Required test configuration is available.
+* Storage and push delivery use controlled test doubles.
+
+
+Exit criteria
+-------------
+
+* All unit and integration tests pass.
+* No test is skipped without an approved reason.
+* TRX, JUnit, and Cobertura outputs are retained even when tests fail.
+* Xray receives the JUnit results when its credentials are configured.
+
+Any test failure fails the CI job. A scheduled failure must be investigated as a
+possible regression even when no source change was made that day.
+
+
+Live Xray information
+---------------------
+
+Insert a Jira work-items list here named "Automated Tests" using:
+
+project = DEUX AND issuetype = Test ORDER BY key ASC
+
+Suggested columns: Key, Summary, Status, Test Type, Updated
+
+
+Insert another Jira work-items list here named "Recent Test Executions" using:
+
+project = DEUX AND issuetype = "Test Execution" AND created >= -30d ORDER BY created DESC
+
+Suggested columns: Key, Summary, Status, Created, Updated
+
+
+Insert another Jira work-items list here named "Recent Failed Executions" using:
+
+project = DEUX AND issuetype = "Test Execution" AND status NOT IN (Done, Passed) AND created >= -30d ORDER BY created DESC
+
+Suggested columns: Key, Summary, Status, Created, Updated
+
+If the project's successful workflow status has another name, replace Done and
+Passed with the actual status names used by the DEUX project.
+
+
+Failure triage
+--------------
+
+When an execution fails:
+
+1. Open the failed GitHub Actions run.
+2. Determine whether the failure came from the unit or integration suite.
+3. Inspect the failed test, assertion, logs, commit SHA, and uploaded artifacts.
+4. Open the related Xray Test Execution and failed Test Run.
+5. Classify the failure as a product regression, test defect, infrastructure
+   failure, flaky test, or expected requirement change.
+6. Create a Jira Bug for product regressions and flaky tests.
+7. Link the Bug to the failed Xray Test or Test Execution and include the GitHub
+   Actions URL.
+8. Add or update the regression scenario with the correction.
+9. Rerun the affected suite and confirm the next Xray import succeeds.
+
+A defect should contain expected behavior, actual behavior, reproduction steps,
+the failed Xray Test, Test Execution, GitHub Actions URL, commit SHA, environment,
+and relevant logs.
+
+
+Maintenance policy
+------------------
+
+* A behavior change must update its automated test in the same pull request.
+* A new endpoint must be represented in the endpoint matrix or explicitly
+  documented as excluded.
+* A production defect should gain a regression test before or together with the
+  fix.
+* Flaky tests are defects; do not hide them with weaker assertions or sleeps.
+* Review the test plan and Xray Test Sets whenever a backend module is added.
+* Review this Confluence page whenever execution policy or ownership changes.
+
+
+Known decisions and remaining gaps
+----------------------------------
+
+* Confirm the official allowed order-status transition matrix. Current behavior
+  permits reopening completed and canceled orders, and the tests document that
+  behavior.
+* Add a direct PostgreSQL test for duplicate automatic cash-event prevention.
+* Add health or smoke monitoring against the deployed homologation service. The
+  daily workflow validates the code and database integration, but does not prove
+  that a deployed instance is reachable.
+* Address the high-severity advisory reported for the transitive Microsoft.OpenApi
+  2.0.0 dependency and verify API/OpenAPI behavior after remediation.
+
+
+Review history
+--------------
+
+Last substantial test-suite review: 2026-08-05
+Next review: After a major backend module is added, a critical production defect,
+or a material change to the CI/Xray workflow.
