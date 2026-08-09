@@ -90,6 +90,31 @@ namespace DeuxERP.Tests.Sales
         }
 
         [Fact]
+        public async Task GetList_FiltersByLastOrderDateRange()
+        {
+            await AuthenticateAsync();
+            var suffix = DateTime.Now.Ticks.ToString().Substring(12);
+            var clientId = await CreateClientAsync(suffix);
+            var productId = await CreateProductAsync(suffix, "Bolo");
+            await CreateOrderAsync(clientId, productId, 5000);
+
+            var now = DateTime.UtcNow;
+            var searchQs = $"search=Crm+Client+{suffix}";
+
+            var withinRange = await _client.GetAsync(
+                $"/api/v1/crm/list?{searchQs}&lastOrderFrom={Uri.EscapeDataString(now.AddMinutes(-5).ToString("o"))}&lastOrderTo={Uri.EscapeDataString(now.AddMinutes(5).ToString("o"))}");
+            Assert.Equal(HttpStatusCode.OK, withinRange.StatusCode);
+            var withinPaged = await withinRange.Content.ReadFromJsonAsync<PagedCrmResponse>(JsonOptions);
+            Assert.Contains(withinPaged!.Items, c => c.ClientId == clientId);
+
+            var outsideRange = await _client.GetAsync(
+                $"/api/v1/crm/list?{searchQs}&lastOrderTo={Uri.EscapeDataString(now.AddMinutes(-5).ToString("o"))}");
+            Assert.Equal(HttpStatusCode.OK, outsideRange.StatusCode);
+            var outsidePaged = await outsideRange.Content.ReadFromJsonAsync<PagedCrmResponse>(JsonOptions);
+            Assert.DoesNotContain(outsidePaged!.Items, c => c.ClientId == clientId);
+        }
+
+        [Fact]
         public async Task GetList_ClientWithOnlyCanceledOrders_IsExcluded()
         {
             await AuthenticateAsync();
