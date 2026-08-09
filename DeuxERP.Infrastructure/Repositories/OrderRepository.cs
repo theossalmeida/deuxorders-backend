@@ -109,6 +109,91 @@ namespace DeuxERP.Infrastructure.Repositories
             return rows.ToDictionary(r => r.ClientId, r => (r.TotalOrders, r.TotalSpent));
         }
 
+        public async Task<PagedResult<CrmClientSummary>> GetCrmSummariesAsync(
+            int pageNumber,
+            int pageSize,
+            string? search = null,
+            CancellationToken ct = default)
+        {
+            var baseQuery = _context.Orders
+                .AsNoTracking()
+                .Where(o => o.Status != OrderStatus.Canceled);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                baseQuery = baseQuery.Where(o =>
+                    o.Client.Name.ToLower().Contains(term) ||
+                    (o.Client.Mobile != null && o.Client.Mobile.ToLower().Contains(term)));
+            }
+
+            var grouped = baseQuery
+                .GroupBy(o => new { o.ClientId, o.Client.Name, o.Client.Mobile })
+                .Select(g => new
+                {
+                    g.Key.ClientId,
+                    g.Key.Name,
+                    g.Key.Mobile,
+                    OrderCount = g.Count(),
+                    TotalSpend = g.Sum(o => o.TotalPaid),
+                    LastOrderDate = g.Max(o => o.CreatedAt)
+                });
+
+            var totalCount = await grouped.CountAsync(ct);
+
+            var page = await grouped
+                .OrderByDescending(x => x.LastOrderDate)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            if (page.Count == 0)
+                return new PagedResult<CrmClientSummary>([], totalCount, pageNumber, pageSize);
+
+            var clientIds = page.Select(x => x.ClientId).ToList();
+            var lastDates = page.Select(x => x.LastOrderDate).Distinct().ToList();
+            var pairSet = page.Select(x => (x.ClientId, x.LastOrderDate)).ToHashSet();
+
+            var candidateOrders = await _context.Orders
+                .AsNoTracking()
+                .Where(o => clientIds.Contains(o.ClientId)
+                    && lastDates.Contains(o.CreatedAt)
+                    && o.Status != OrderStatus.Canceled)
+                .Include(o => o.Items)
+                    .ThenInclude(i => i.Product)
+                .AsSplitQuery()
+                .ToListAsync(ct);
+
+            var lastOrderByClient = candidateOrders
+                .Where(o => pairSet.Contains((o.ClientId, o.CreatedAt)))
+                .GroupBy(o => o.ClientId)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var items = page.Select(x =>
+            {
+                lastOrderByClient.TryGetValue(x.ClientId, out var lastOrder);
+                var products = lastOrder?.Items
+                    .Where(i => !i.ItemCanceled)
+                    .Select(i => i.Product?.Name ?? "Produto não encontrado")
+                    .ToList() ?? [];
+                var lastOrderSpend = lastOrder?.TotalPaid ?? 0;
+                var averageSpend = (long)Math.Round(x.TotalSpend / (double)x.OrderCount, MidpointRounding.AwayFromZero);
+
+                return new CrmClientSummary(
+                    x.ClientId,
+                    x.Name,
+                    x.Mobile,
+                    x.OrderCount,
+                    averageSpend,
+                    x.TotalSpend,
+                    x.LastOrderDate,
+                    new CrmLastOrderInfo(products, lastOrderSpend)
+                );
+            }).ToList();
+
+            return new PagedResult<CrmClientSummary>(items, totalCount, pageNumber, pageSize);
+        }
+
         public async Task<IReadOnlyList<OrderDueSummary>> GetDueOnDateAsync(DateOnly date, CancellationToken ct = default)
         {
             var start = DateTime.SpecifyKind(date.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
