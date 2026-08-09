@@ -142,7 +142,7 @@ namespace DeuxERP.Infrastructure.Repositories
             var totalCount = await grouped.CountAsync(ct);
 
             var page = await grouped
-                .OrderByDescending(x => x.LastOrderDate)
+                .OrderBy(x => x.LastOrderDate)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync(ct);
@@ -174,6 +174,7 @@ namespace DeuxERP.Infrastructure.Repositories
                 lastOrderByClient.TryGetValue(x.ClientId, out var lastOrder);
                 var products = lastOrder?.Items
                     .Where(i => !i.ItemCanceled)
+                    .OrderByDescending(i => i.PaidUnitPrice)
                     .Select(i => i.Product?.Name ?? "Produto não encontrado")
                     .ToList() ?? [];
                 var lastOrderSpend = lastOrder?.TotalPaid ?? 0;

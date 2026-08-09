@@ -141,7 +141,7 @@ All routes are prefixed with `/api/v1/`. All endpoints except `POST /auth/login`
 - `GET /products/dropdown?status=` — Returns `{ id, name, price, category, size }` list for UI dropdowns. The frontend groups duplicate product names and uses `size` to choose the concrete product variant.
 
 **CRM**
-- `GET /crm/list?search=&page=&size=` — Paginated client list with order aggregates. Returns `{ items[], totalCount, pageNumber, pageSize }` where each item is a `CrmClientSummary` (`clientId, name, mobile, orderCount, averageSpend, totalSpend, lastOrderDate, lastOrderInfo: { products[], totalSpend }`). Only clients with at least one non-canceled order are included; canceled orders/items are excluded from all aggregates, same as Dashboard. Backed by `IOrderRepository.GetCrmSummariesAsync`.
+- `GET /crm/list?search=&page=&size=` — Paginated client list with order aggregates. Returns `{ items[], totalCount, pageNumber, pageSize }` where each item is a `CrmClientSummary` (`clientId, name, mobile, orderCount, averageSpend, totalSpend, lastOrderDate, lastOrderInfo: { products[], totalSpend }`). Only clients with at least one non-canceled order are included; canceled orders/items are excluded from all aggregates, same as Dashboard. Sorted by `lastOrderDate` ascending (oldest last order first), surfacing clients who haven't ordered in the longest time. Backed by `IOrderRepository.GetCrmSummariesAsync`.
 
 **Dashboard**
 - `GET /dashboard/summary?createdAtFrom=&createdAtTo=&status=` — Aggregate metrics (revenue, discounts, order counts).
