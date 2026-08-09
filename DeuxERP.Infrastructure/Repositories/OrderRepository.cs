@@ -113,6 +113,8 @@ namespace DeuxERP.Infrastructure.Repositories
             int pageNumber,
             int pageSize,
             string? search = null,
+            DateTime? lastOrderFrom = null,
+            DateTime? lastOrderTo = null,
             CancellationToken ct = default)
         {
             var baseQuery = _context.Orders
@@ -138,6 +140,11 @@ namespace DeuxERP.Infrastructure.Repositories
                     TotalSpend = g.Sum(o => o.TotalPaid),
                     LastOrderDate = g.Max(o => o.CreatedAt)
                 });
+
+            if (lastOrderFrom.HasValue)
+                grouped = grouped.Where(x => x.LastOrderDate >= lastOrderFrom.Value);
+            if (lastOrderTo.HasValue)
+                grouped = grouped.Where(x => x.LastOrderDate < lastOrderTo.Value);
 
             var totalCount = await grouped.CountAsync(ct);
 
