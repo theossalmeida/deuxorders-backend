@@ -25,7 +25,7 @@ namespace DeuxERP.API.Controllers
         {
             if (page < 1) page = 1;
             if (size < 1) size = 1;
-            if (size > 100) size = 100;
+            if (size > 500) size = 500;
 
             var result = await _orderRepository.GetCrmSummariesAsync(page, size, search, ct);
 
