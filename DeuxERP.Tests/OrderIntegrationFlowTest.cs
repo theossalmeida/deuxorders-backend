@@ -27,6 +27,49 @@ namespace DeuxERP.Tests
         }
 
         [Fact]
+        public async Task UpdateOrder_WhenItemIsOmitted_ShouldCancelIt()
+        {
+            await AuthenticateAsync();
+
+            var clientResponse = await _client.PostAsJsonAsync("/api/v1/clients/new",
+                new CreateClient("Cliente Remocao", "11999990000"));
+            clientResponse.EnsureSuccessStatusCode();
+            var customer = (await clientResponse.Content.ReadFromJsonAsync<ClientResponse>(JsonOptions))!;
+
+            async Task<ProductResponse> CreateProductAsync(string name)
+            {
+                var form = new MultipartFormDataContent();
+                form.Add(new StringContent(name), "Name");
+                form.Add(new StringContent("1000"), "Price");
+                var response = await _client.PostAsync("/api/v1/products/new", form);
+                response.EnsureSuccessStatusCode();
+                return (await response.Content.ReadFromJsonAsync<ProductResponse>(JsonOptions))!;
+            }
+
+            var retainedProduct = await CreateProductAsync("Produto Mantido");
+            var removedProduct = await CreateProductAsync("Produto Removido");
+            var createResponse = await _client.PostAsJsonAsync("/api/v1/orders/new",
+                new CreateOrderRequest(customer.Id, DateTime.UtcNow.AddDays(1),
+                [
+                    new CreateOrderItemRequest(retainedProduct.Id, 1, 1000, null, null, null),
+                    new CreateOrderItemRequest(removedProduct.Id, 2, 1000, null, null, null)
+                ], null));
+            createResponse.EnsureSuccessStatusCode();
+            var created = (await createResponse.Content.ReadFromJsonAsync<OrderResponse>(JsonOptions))!;
+
+            var updateResponse = await _client.PutAsJsonAsync($"/api/v1/orders/{created.Id}",
+                new UpdateOrderRequest(null, null,
+                [new UpdateOrderItemRequest(retainedProduct.Id, 1, 1000, null, null, null)], null));
+            updateResponse.EnsureSuccessStatusCode();
+
+            var updated = await GetOrderAsync(created.Id);
+            Assert.False(updated.Items.Single(item => item.ProductId == retainedProduct.Id).ItemCanceled);
+            Assert.True(updated.Items.Single(item => item.ProductId == removedProduct.Id).ItemCanceled);
+            Assert.Equal(1000, updated.TotalPaid);
+            Assert.Equal(1000, updated.TotalValue);
+        }
+
+        [Fact]
         public async Task Order_CompleteLifeCycle_ShouldFollowBusinessRules()
         {
             await AuthenticateAsync();
