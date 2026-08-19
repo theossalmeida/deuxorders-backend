@@ -92,7 +92,7 @@ namespace DeuxERP.Application.Services
             if (request.DeliveryDate.HasValue)
                 order.UpdateDeliveryDate(request.DeliveryDate.Value);
 
-            if (request.Items != null && request.Items.Count > 0)
+            if (request.Items != null)
             {
                 var productIds = request.Items.Select(item => item.ProductId).Distinct().ToList();
                 var dbProducts = await _db.Products
@@ -100,6 +100,19 @@ namespace DeuxERP.Application.Services
                     .ToListAsync();
                 var productsDict = dbProducts.ToDictionary(product => product.Id);
                 var existingProductIds = order.Items.Select(item => item.ProductId).ToHashSet();
+                var requestedProductIds = productIds.ToHashSet();
+
+                var removedItems = order.Items
+                    .Where(item => !item.ItemCanceled && !requestedProductIds.Contains(item.ProductId))
+                    .ToList();
+
+                foreach (var removedItem in removedItems)
+                {
+                    order.CancelItem(removedItem.ProductId);
+
+                    if (isPreparingOrWaiting)
+                        warnings.AddRange(await _inventoryService.AdjustForOrderItemAsync(removedItem, -removedItem.Quantity));
+                }
 
                 foreach (var itemRequest in request.Items)
                 {

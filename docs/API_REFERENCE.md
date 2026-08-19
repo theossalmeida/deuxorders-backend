@@ -74,7 +74,9 @@ Query params: `page` (default 1), `size` (default 10, max 100), `status` (OrderS
 ```
 
 ### PUT /orders/{id}
-All fields optional. Items are upserted (created if new, updated if existing).
+All fields optional. When `items` is provided, it represents the complete active item list:
+items omitted from the list are canceled, existing items are updated, and new items are created.
+Omit `items` (or send `null`) to leave the order items unchanged.
 ```json
 {
   "deliveryDate": "2026-04-05T00:00:00Z",
