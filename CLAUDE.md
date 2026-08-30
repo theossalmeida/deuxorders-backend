@@ -141,16 +141,16 @@ All routes are prefixed with `/api/v1/`. All endpoints except `POST /auth/login`
 - `GET /products/dropdown?status=` — Returns `{ id, name, price, category, size }` list for UI dropdowns. The frontend groups duplicate product names and uses `size` to choose the concrete product variant.
 
 **CRM**
-- `GET /crm/list?search=&page=&size=` — Paginated client list with order aggregates. Returns `{ items[], totalCount, pageNumber, pageSize }` where each item is a `CrmClientSummary` (`clientId, name, mobile, orderCount, averageSpend, totalSpend, lastOrderDate, lastOrderInfo: { products[], totalSpend }`). Only clients with at least one non-canceled order are included; canceled orders/items are excluded from all aggregates, same as Dashboard. Sorted by `lastOrderDate` ascending (oldest last order first), surfacing clients who haven't ordered in the longest time. Backed by `IOrderRepository.GetCrmSummariesAsync`.
+- `GET /crm/list?search=&page=&size=&lastOrderFrom=&lastOrderTo=` — Paginated client list with order aggregates. Returns `{ items[], totalCount, pageNumber, pageSize }` where each item is a `CrmClientSummary` (`clientId, name, mobile, orderCount, averageSpend, totalSpend, lastOrderDate, lastOrderInfo: { products[], totalSpend }`). Only clients with at least one non-canceled order are included; canceled orders/items are excluded from all aggregates, same as Dashboard. `lastOrderFrom`/`lastOrderTo` (ISO datetimes, `to` exclusive) filter clients by their aggregate `lastOrderDate` — used by the frontend to power the "how long since this client last ordered" tier filter. Sorted by `lastOrderDate` ascending (oldest last order first), surfacing clients who haven't ordered in the longest time. Backed by `IOrderRepository.GetCrmSummariesAsync`.
 
 **Dashboard**
-- `GET /dashboard/summary?createdAtFrom=&createdAtTo=&status=` — Aggregate metrics (revenue, discounts, order counts).
-- `GET /dashboard/revenue-over-time?createdAtFrom=&createdAtTo=&status=` — Daily revenue data points.
-- `GET /dashboard/top-products?createdAtFrom=&createdAtTo=&status=&limit=10`
-- `GET /dashboard/top-clients?createdAtFrom=&createdAtTo=&status=&limit=10`
+- `GET /dashboard/summary?deliveryDateFrom=&deliveryDateTo=&status=` — Aggregate metrics (revenue, discounts, order counts).
+- `GET /dashboard/revenue-over-time?deliveryDateFrom=&deliveryDateTo=&status=` — Daily revenue data points.
+- `GET /dashboard/top-products?deliveryDateFrom=&deliveryDateTo=&status=&limit=10`
+- `GET /dashboard/top-clients?deliveryDateFrom=&deliveryDateTo=&status=&limit=10`
 - `GET /dashboard/export?from=&to=&status=&format=csv|pdf` — Export via QuestPDF (PDF) or custom CSV writer. Excludes canceled items.
 
-Dashboard repository queries use `AsNoTracking()`. Canceled orders are always counted separately regardless of status filter.
+All Dashboard endpoints filter/bucket by `Order.DeliveryDate` (not `CreatedAt`), consistent with the Orders list (`GET /orders/all`). Legacy `startDate`/`endDate` query params are still accepted as a fallback when the `deliveryDateFrom`/`deliveryDateTo` pair is omitted. Dashboard repository queries use `AsNoTracking()`. Canceled orders are always counted separately regardless of status filter.
 
 **Payments (AbacatePay)** — payment infrastructure exists in the DB (`PaymentTransaction`, `WebhookEventLog`, `CheckoutSession`) but no payment controller has been built yet.
 
