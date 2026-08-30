@@ -32,54 +32,54 @@ namespace DeuxERP.API.Controllers
 
         [HttpGet("summary")]
         public async Task<IActionResult> GetSummary(
-            [FromQuery] DateTimeOffset? createdAtFrom,
-            [FromQuery] DateTimeOffset? createdAtTo,
+            [FromQuery] DateTimeOffset? deliveryDateFrom,
+            [FromQuery] DateTimeOffset? deliveryDateTo,
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
             [FromQuery] OrderStatus? status)
         {
-            var (utcStart, utcEnd) = NormalizeCreatedAtRange(createdAtFrom, createdAtTo, startDate, endDate);
+            var (utcStart, utcEnd) = NormalizeDeliveryDateRange(deliveryDateFrom, deliveryDateTo, startDate, endDate);
             var result = await _service.GetSummaryAsync(utcStart, utcEnd, status);
             return Ok(result);
         }
 
         [HttpGet("revenue-over-time")]
         public async Task<IActionResult> GetRevenueOverTime(
-            [FromQuery] DateTimeOffset? createdAtFrom,
-            [FromQuery] DateTimeOffset? createdAtTo,
+            [FromQuery] DateTimeOffset? deliveryDateFrom,
+            [FromQuery] DateTimeOffset? deliveryDateTo,
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
             [FromQuery] OrderStatus? status)
         {
-            var (utcStart, utcEnd) = NormalizeCreatedAtRange(createdAtFrom, createdAtTo, startDate, endDate);
+            var (utcStart, utcEnd) = NormalizeDeliveryDateRange(deliveryDateFrom, deliveryDateTo, startDate, endDate);
             var result = await _service.GetRevenueOverTimeAsync(utcStart, utcEnd, status);
             return Ok(result);
         }
 
         [HttpGet("top-products")]
         public async Task<IActionResult> GetTopProducts(
-            [FromQuery] DateTimeOffset? createdAtFrom,
-            [FromQuery] DateTimeOffset? createdAtTo,
+            [FromQuery] DateTimeOffset? deliveryDateFrom,
+            [FromQuery] DateTimeOffset? deliveryDateTo,
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
             [FromQuery] OrderStatus? status,
             [FromQuery] int limit = 10)
         {
-            var (utcStart, utcEnd) = NormalizeCreatedAtRange(createdAtFrom, createdAtTo, startDate, endDate);
+            var (utcStart, utcEnd) = NormalizeDeliveryDateRange(deliveryDateFrom, deliveryDateTo, startDate, endDate);
             var result = await _service.GetTopProductsAsync(utcStart, utcEnd, status, limit);
             return Ok(result);
         }
 
         [HttpGet("top-clients")]
         public async Task<IActionResult> GetTopClients(
-            [FromQuery] DateTimeOffset? createdAtFrom,
-            [FromQuery] DateTimeOffset? createdAtTo,
+            [FromQuery] DateTimeOffset? deliveryDateFrom,
+            [FromQuery] DateTimeOffset? deliveryDateTo,
             [FromQuery] DateTime? startDate,
             [FromQuery] DateTime? endDate,
             [FromQuery] OrderStatus? status,
             [FromQuery] int limit = 10)
         {
-            var (utcStart, utcEnd) = NormalizeCreatedAtRange(createdAtFrom, createdAtTo, startDate, endDate);
+            var (utcStart, utcEnd) = NormalizeDeliveryDateRange(deliveryDateFrom, deliveryDateTo, startDate, endDate);
             var result = await _service.GetTopClientsAsync(utcStart, utcEnd, status, limit);
             return Ok(result);
         }
@@ -116,14 +116,14 @@ namespace DeuxERP.API.Controllers
             return new EmptyResult();
         }
 
-        private static (DateTime? Start, DateTime? End) NormalizeCreatedAtRange(
-            DateTimeOffset? createdAtFrom,
-            DateTimeOffset? createdAtTo,
+        private static (DateTime? Start, DateTime? End) NormalizeDeliveryDateRange(
+            DateTimeOffset? deliveryDateFrom,
+            DateTimeOffset? deliveryDateTo,
             DateTime? legacyStart,
             DateTime? legacyEnd)
         {
-            if (createdAtFrom.HasValue || createdAtTo.HasValue)
-                return (createdAtFrom?.UtcDateTime, createdAtTo?.UtcDateTime);
+            if (deliveryDateFrom.HasValue || deliveryDateTo.HasValue)
+                return (deliveryDateFrom?.UtcDateTime, deliveryDateTo?.UtcDateTime);
 
             return NormalizeDateRange(legacyStart, legacyEnd);
         }

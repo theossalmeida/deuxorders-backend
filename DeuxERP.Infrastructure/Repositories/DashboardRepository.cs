@@ -8,7 +8,6 @@ namespace DeuxERP.Infrastructure.Repositories
 {
     public class DashboardRepository : IDashboardRepository
     {
-        private const int BusinessTimezoneOffsetHours = -3;
         private readonly ApplicationDbContext _context;
 
         public DashboardRepository(ApplicationDbContext context)
@@ -22,10 +21,10 @@ namespace DeuxERP.Infrastructure.Repositories
                 .Where(o => o.Status != OrderStatus.Canceled);
 
             if (filter.StartDate.HasValue)
-                query = query.Where(o => o.CreatedAt >= filter.StartDate.Value);
+                query = query.Where(o => o.DeliveryDate >= filter.StartDate.Value);
 
             if (filter.EndDate.HasValue)
-                query = query.Where(o => o.CreatedAt < filter.EndDate.Value);
+                query = query.Where(o => o.DeliveryDate < filter.EndDate.Value);
 
             if (filter.Status.HasValue)
                 query = query.Where(o => o.Status == filter.Status.Value);
@@ -50,9 +49,9 @@ namespace DeuxERP.Infrastructure.Repositories
             var canceledQuery = _context.Orders.AsNoTracking()
                 .Where(o => o.Status == OrderStatus.Canceled);
             if (filter.StartDate.HasValue)
-                canceledQuery = canceledQuery.Where(o => o.CreatedAt >= filter.StartDate.Value);
+                canceledQuery = canceledQuery.Where(o => o.DeliveryDate >= filter.StartDate.Value);
             if (filter.EndDate.HasValue)
-                canceledQuery = canceledQuery.Where(o => o.CreatedAt < filter.EndDate.Value);
+                canceledQuery = canceledQuery.Where(o => o.DeliveryDate < filter.EndDate.Value);
             var canceledOrders = await canceledQuery.CountAsync();
 
             if (result == null)
@@ -71,7 +70,7 @@ namespace DeuxERP.Infrastructure.Repositories
         public async Task<IEnumerable<RevenueDataPointModel>> GetRevenueOverTimeAsync(DashboardFilter filter)
         {
             var rawData = await ApplyFilters(filter)
-                .GroupBy(o => o.CreatedAt.AddHours(BusinessTimezoneOffsetHours).Date)
+                .GroupBy(o => o.DeliveryDate.Date)
                 .Select(g => new
                 {
                     Date = g.Key,
