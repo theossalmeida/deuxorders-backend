@@ -2,7 +2,8 @@
 
 namespace DeuxERP.Domain.Models
 {
-    public record ExportFilter(DateTime? From, DateTime? To, OrderStatus? Status);
+    public record ExportFilter(DateTime? From, DateTime? To, OrderStatus? Status,
+        OrderDateField DateField = OrderDateField.DeliveryDate, Guid? ClientId = null, bool? IsPaid = null);
 
     public record OrderExportRow(
         Guid OrderId,
@@ -15,7 +16,8 @@ namespace DeuxERP.Domain.Models
         long TotalPaid
     );
 
-    public record DashboardFilter(DateTime? StartDate, DateTime? EndDate, OrderStatus? Status);
+    public record DashboardFilter(DateTime? StartDate, DateTime? EndDate, OrderStatus? Status,
+        OrderDateField DateField = OrderDateField.DeliveryDate, Guid? ClientId = null, bool? IsPaid = null);
 
     public record DashboardSummaryModel(
         long TotalRevenue,

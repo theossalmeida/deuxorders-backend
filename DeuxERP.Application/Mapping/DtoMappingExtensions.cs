@@ -20,7 +20,8 @@ namespace DeuxERP.Application.Mapping
                 signedReferenceUrls,
                 order.Items.Select(i => i.ToResponse()).ToList(),
                 order.PaidAt,
-                order.PaidByUserName
+                order.PaidByUserName,
+                order.CreatedAt
             );
         }
 

@@ -1,4 +1,4 @@
-﻿using DeuxERP.Domain.Models;
+using DeuxERP.Domain.Models;
 using DeuxERP.Domain.Sales;
 
 namespace DeuxERP.Application.DTOs
@@ -15,7 +15,8 @@ namespace DeuxERP.Application.DTOs
         List<string>? References,
         List<OrderItemResponse> Items,
         DateTime? PaidAt,
-        string? PaidByUserName
+        string? PaidByUserName,
+        DateTime CreatedAt = default
     );
 
     public record OrderItemResponse(

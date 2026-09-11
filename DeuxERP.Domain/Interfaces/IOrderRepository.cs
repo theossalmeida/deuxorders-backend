@@ -1,4 +1,4 @@
-﻿using DeuxERP.Domain.Sales;
+using DeuxERP.Domain.Sales;
 using DeuxERP.Domain.Models;
 
 namespace DeuxERP.Domain.Interfaces
@@ -12,13 +12,16 @@ namespace DeuxERP.Domain.Interfaces
             OrderStatus? status = null,
             DateTime? from = null,
             DateTime? to = null,
-            string? search = null);
+            string? search = null,
+            OrderDateField dateField = OrderDateField.DeliveryDate,
+            Guid? clientId = null, bool? isPaid = null, Guid? productId = null);
         Task<IEnumerable<OrderExportRow>> GetForExportAsync(ExportFilter filter, CancellationToken ct = default);
         IAsyncEnumerable<OrderExportRow> StreamForExportAsync(ExportFilter filter, CancellationToken ct = default);
         Task<int> CountForExportAsync(ExportFilter filter, CancellationToken ct = default);
         Task<ClientStats> GetClientStatsAsync(Guid clientId, CancellationToken ct = default);
         Task<PagedResult<Order>> GetByClientAsync(Guid clientId, int page, int size, CancellationToken ct = default);
-        Task<ProductStats> GetProductStatsAsync(Guid productId, int year, int month, CancellationToken ct = default);
+        Task<ProductStats> GetProductStatsAsync(Guid productId, int year, int month, CancellationToken ct = default,
+            OrderDateField dateField = OrderDateField.DeliveryDate);
         Task<Dictionary<Guid, (int TotalOrders, long TotalSpent)>> GetTotalsForClientsAsync(IEnumerable<Guid> clientIds, CancellationToken ct = default);
         Task<IReadOnlyList<OrderDueSummary>> GetDueOnDateAsync(DateOnly date, CancellationToken ct = default);
         Task<PagedResult<CrmClientSummary>> GetCrmSummariesAsync(

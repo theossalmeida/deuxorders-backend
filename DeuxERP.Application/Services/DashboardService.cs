@@ -1,4 +1,4 @@
-﻿using DeuxERP.Application.DTOs;
+using DeuxERP.Application.DTOs;
 using DeuxERP.Domain.Sales;
 using DeuxERP.Domain.Interfaces;
 using DeuxERP.Domain.Models;
@@ -14,9 +14,10 @@ namespace DeuxERP.Application.Services
             _repository = repository;
         }
 
-        public async Task<DashboardSummaryResponse> GetSummaryAsync(DateTime? startDate, DateTime? endDate, OrderStatus? status)
+        public async Task<DashboardSummaryResponse> GetSummaryAsync(DateTime? startDate, DateTime? endDate, OrderStatus? status,
+            OrderDateField dateField = OrderDateField.DeliveryDate, Guid? clientId = null, bool? isPaid = null)
         {
-            var filter = new DashboardFilter(startDate, endDate, status);
+            var filter = new DashboardFilter(startDate, endDate, status, dateField, clientId, isPaid);
             var model = await _repository.GetSummaryAsync(filter);
 
             long discount = model.TotalValue - model.TotalRevenue;
@@ -34,9 +35,10 @@ namespace DeuxERP.Application.Services
             );
         }
 
-        public async Task<RevenueOverTimeResponse> GetRevenueOverTimeAsync(DateTime? startDate, DateTime? endDate, OrderStatus? status)
+        public async Task<RevenueOverTimeResponse> GetRevenueOverTimeAsync(DateTime? startDate, DateTime? endDate, OrderStatus? status,
+            OrderDateField dateField = OrderDateField.DeliveryDate, Guid? clientId = null, bool? isPaid = null)
         {
-            var filter = new DashboardFilter(startDate, endDate, status);
+            var filter = new DashboardFilter(startDate, endDate, status, dateField, clientId, isPaid);
             var dataPoints = await _repository.GetRevenueOverTimeAsync(filter);
 
             return new RevenueOverTimeResponse(
@@ -44,17 +46,19 @@ namespace DeuxERP.Application.Services
             );
         }
 
-        public async Task<IEnumerable<TopProductResponse>> GetTopProductsAsync(DateTime? startDate, DateTime? endDate, OrderStatus? status, int limit)
+        public async Task<IEnumerable<TopProductResponse>> GetTopProductsAsync(DateTime? startDate, DateTime? endDate, OrderStatus? status, int limit,
+            OrderDateField dateField = OrderDateField.DeliveryDate, Guid? clientId = null, bool? isPaid = null)
         {
-            var filter = new DashboardFilter(startDate, endDate, status);
+            var filter = new DashboardFilter(startDate, endDate, status, dateField, clientId, isPaid);
             var models = await _repository.GetTopProductsAsync(filter, limit);
 
             return models.Select(m => new TopProductResponse(m.ProductId, m.ProductName, m.TotalRevenue, m.TotalQuantitySold, m.OrderCount));
         }
 
-        public async Task<IEnumerable<TopClientResponse>> GetTopClientsAsync(DateTime? startDate, DateTime? endDate, OrderStatus? status, int limit)
+        public async Task<IEnumerable<TopClientResponse>> GetTopClientsAsync(DateTime? startDate, DateTime? endDate, OrderStatus? status, int limit,
+            OrderDateField dateField = OrderDateField.DeliveryDate, Guid? clientId = null, bool? isPaid = null)
         {
-            var filter = new DashboardFilter(startDate, endDate, status);
+            var filter = new DashboardFilter(startDate, endDate, status, dateField, clientId, isPaid);
             var models = await _repository.GetTopClientsAsync(filter, limit);
 
             return models.Select(m => new TopClientResponse(m.ClientId, m.ClientName, m.TotalRevenue, m.OrderCount));

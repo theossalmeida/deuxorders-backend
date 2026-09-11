@@ -1,4 +1,5 @@
-﻿using DeuxERP.API.Services;
+using DeuxERP.API.Services;
+using DeuxERP.API.Models;
 using DeuxERP.Application.Services;
 using DeuxERP.Domain.Sales;
 using DeuxERP.Domain.Interfaces;
@@ -32,69 +33,51 @@ namespace DeuxERP.API.Controllers
 
         [HttpGet("summary")]
         public async Task<IActionResult> GetSummary(
-            [FromQuery] DateTimeOffset? deliveryDateFrom,
-            [FromQuery] DateTimeOffset? deliveryDateTo,
-            [FromQuery] DateTime? startDate,
-            [FromQuery] DateTime? endDate,
-            [FromQuery] OrderStatus? status)
+            [FromQuery] DashboardQuery query)
         {
-            var (utcStart, utcEnd) = NormalizeDeliveryDateRange(deliveryDateFrom, deliveryDateTo, startDate, endDate);
-            var result = await _service.GetSummaryAsync(utcStart, utcEnd, status);
+            var (utcStart, utcEnd, dateField) = query.ResolvePeriod();
+            var result = await _service.GetSummaryAsync(utcStart, utcEnd, query.Status, dateField, query.ClientId, query.IsPaid);
             return Ok(result);
         }
 
         [HttpGet("revenue-over-time")]
         public async Task<IActionResult> GetRevenueOverTime(
-            [FromQuery] DateTimeOffset? deliveryDateFrom,
-            [FromQuery] DateTimeOffset? deliveryDateTo,
-            [FromQuery] DateTime? startDate,
-            [FromQuery] DateTime? endDate,
-            [FromQuery] OrderStatus? status)
+            [FromQuery] DashboardQuery query)
         {
-            var (utcStart, utcEnd) = NormalizeDeliveryDateRange(deliveryDateFrom, deliveryDateTo, startDate, endDate);
-            var result = await _service.GetRevenueOverTimeAsync(utcStart, utcEnd, status);
+            var (utcStart, utcEnd, dateField) = query.ResolvePeriod();
+            var result = await _service.GetRevenueOverTimeAsync(utcStart, utcEnd, query.Status, dateField, query.ClientId, query.IsPaid);
             return Ok(result);
         }
 
         [HttpGet("top-products")]
         public async Task<IActionResult> GetTopProducts(
-            [FromQuery] DateTimeOffset? deliveryDateFrom,
-            [FromQuery] DateTimeOffset? deliveryDateTo,
-            [FromQuery] DateTime? startDate,
-            [FromQuery] DateTime? endDate,
-            [FromQuery] OrderStatus? status,
+            [FromQuery] DashboardQuery query,
             [FromQuery] int limit = 10)
         {
-            var (utcStart, utcEnd) = NormalizeDeliveryDateRange(deliveryDateFrom, deliveryDateTo, startDate, endDate);
-            var result = await _service.GetTopProductsAsync(utcStart, utcEnd, status, limit);
+            var (utcStart, utcEnd, dateField) = query.ResolvePeriod();
+            var result = await _service.GetTopProductsAsync(utcStart, utcEnd, query.Status, Math.Clamp(limit, 1, 100), dateField, query.ClientId, query.IsPaid);
             return Ok(result);
         }
 
         [HttpGet("top-clients")]
         public async Task<IActionResult> GetTopClients(
-            [FromQuery] DateTimeOffset? deliveryDateFrom,
-            [FromQuery] DateTimeOffset? deliveryDateTo,
-            [FromQuery] DateTime? startDate,
-            [FromQuery] DateTime? endDate,
-            [FromQuery] OrderStatus? status,
+            [FromQuery] DashboardQuery query,
             [FromQuery] int limit = 10)
         {
-            var (utcStart, utcEnd) = NormalizeDeliveryDateRange(deliveryDateFrom, deliveryDateTo, startDate, endDate);
-            var result = await _service.GetTopClientsAsync(utcStart, utcEnd, status, limit);
+            var (utcStart, utcEnd, dateField) = query.ResolvePeriod();
+            var result = await _service.GetTopClientsAsync(utcStart, utcEnd, query.Status, Math.Clamp(limit, 1, 100), dateField, query.ClientId, query.IsPaid);
             return Ok(result);
         }
 
         [HttpGet("export")]
         public async Task<IActionResult> Export(
-            [FromQuery] DateTime? from,
-            [FromQuery] DateTime? to,
-            [FromQuery] OrderStatus? status,
+            [FromQuery] OrderPeriodQuery query,
             [FromQuery] string format = "csv",
             CancellationToken ct = default)
         {
-            var (utcFrom, utcTo) = NormalizeDateRange(from, to);
+            var (utcFrom, utcTo, dateField) = query.ResolvePeriod();
             var filename = $"pedidos_{DateTime.UtcNow:yyyyMMdd}";
-            var filter = new ExportFilter(utcFrom, utcTo, status);
+            var filter = new ExportFilter(utcFrom, utcTo, query.Status, dateField, query.ClientId, query.IsPaid);
             var rowCount = await _repository.CountForExportAsync(filter, ct);
 
             if (format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
@@ -116,38 +99,5 @@ namespace DeuxERP.API.Controllers
             return new EmptyResult();
         }
 
-        private static (DateTime? Start, DateTime? End) NormalizeDeliveryDateRange(
-            DateTimeOffset? deliveryDateFrom,
-            DateTimeOffset? deliveryDateTo,
-            DateTime? legacyStart,
-            DateTime? legacyEnd)
-        {
-            if (deliveryDateFrom.HasValue || deliveryDateTo.HasValue)
-                return (deliveryDateFrom?.UtcDateTime, deliveryDateTo?.UtcDateTime);
-
-            return NormalizeDateRange(legacyStart, legacyEnd);
-        }
-
-        private static (DateTime? Start, DateTime? End) NormalizeDateRange(DateTime? start, DateTime? end)
-        {
-            var utcStart = start.HasValue
-                ? NormalizeDateBoundary(start.Value, false)
-                : (DateTime?)null;
-
-            var utcEnd = end.HasValue
-                ? NormalizeDateBoundary(end.Value, true)
-                : (DateTime?)null;
-
-            return (utcStart, utcEnd);
-        }
-
-        private static DateTime NormalizeDateBoundary(DateTime value, bool exclusiveEnd)
-        {
-            if (value.Kind != DateTimeKind.Unspecified)
-                return value.ToUniversalTime();
-
-            var date = exclusiveEnd ? value.Date.AddDays(1) : value.Date;
-            return DateTime.SpecifyKind(date, DateTimeKind.Utc);
-        }
     }
 }

@@ -1,5 +1,6 @@
-﻿using DeuxERP.Domain.Sales;
+using DeuxERP.Domain.Sales;
 using DeuxERP.Domain.Interfaces;
+using DeuxERP.Application.Common;
 using DeuxERP.Domain.Models;
 using DeuxERP.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -32,24 +33,14 @@ namespace DeuxERP.Infrastructure.Repositories
             OrderStatus? status = null,
             DateTime? from = null,
             DateTime? to = null,
-            string? search = null)
+            string? search = null,
+            OrderDateField dateField = OrderDateField.DeliveryDate,
+            Guid? clientId = null, bool? isPaid = null, Guid? productId = null)
         {
-            var baseQuery = _context.Orders.AsNoTracking();
-
-            if (status.HasValue)
-                baseQuery = baseQuery.Where(o => o.Status == status.Value);
-
-            if (from.HasValue)
-            {
-                var fromDate = from.Value.Date;
-                baseQuery = baseQuery.Where(o => o.DeliveryDate >= fromDate);
-            }
-
-            if (to.HasValue)
-            {
-                var exclusiveTo = to.Value.Date.AddDays(1);
-                baseQuery = baseQuery.Where(o => o.DeliveryDate < exclusiveTo);
-            }
+            var baseQuery = _context.Orders.AsNoTracking()
+                .ApplyOrderFilters(from, to, status, dateField, clientId, isPaid);
+            if (productId.HasValue)
+                baseQuery = baseQuery.Where(o => o.Items.Any(i => !i.ItemCanceled && i.ProductId == productId.Value));
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -217,14 +208,16 @@ namespace DeuxERP.Infrastructure.Repositories
                 .ToListAsync(ct);
         }
 
-        public async Task<ProductStats> GetProductStatsAsync(Guid productId, int year, int month, CancellationToken ct = default)
+        public async Task<ProductStats> GetProductStatsAsync(Guid productId, int year, int month, CancellationToken ct = default,
+            OrderDateField dateField = OrderDateField.DeliveryDate)
         {
-            var firstDay = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
-            var nextMonth = firstDay.AddMonths(1);
+            var firstDay = new DateTime(year, month, 1);
+            var (start, end) = BusinessDateRange.Normalize(firstDay, firstDay.AddMonths(1).AddDays(-1));
 
             var stats = await _context.Orders
                 .AsNoTracking()
-                .Where(o => o.Status != OrderStatus.Canceled && o.CreatedAt >= firstDay && o.CreatedAt < nextMonth)
+                .Where(o => o.Status != OrderStatus.Canceled)
+                .ApplyOrderFilters(start, end, null, dateField)
                 .SelectMany(o => o.Items.Where(i => !i.ItemCanceled && i.ProductId == productId))
                 .GroupBy(i => 1)
                 .Select(g => new { Sold = g.Sum(i => i.Quantity), Revenue = g.Sum(i => i.TotalPaid) })
@@ -250,16 +243,9 @@ namespace DeuxERP.Infrastructure.Repositories
 
         public async Task<IEnumerable<OrderExportRow>> GetForExportAsync(ExportFilter filter, CancellationToken ct = default)
         {
-            var query = _context.Orders.AsNoTracking();
-
-            if (filter.Status.HasValue)
-                query = query.Where(o => o.Status == filter.Status.Value);
-
-            if (filter.From.HasValue)
-                query = query.Where(o => o.DeliveryDate >= filter.From.Value);
-
-            if (filter.To.HasValue)
-                query = query.Where(o => o.DeliveryDate < filter.To.Value);
+            var query = _context.Orders.AsNoTracking()
+                .ApplyOrderFilters(filter.From, filter.To, filter.Status,
+                    filter.DateField, filter.ClientId, filter.IsPaid);
 
             return await query
                 .OrderBy(o => o.DeliveryDate)
@@ -280,16 +266,9 @@ namespace DeuxERP.Infrastructure.Repositories
 
         public IAsyncEnumerable<OrderExportRow> StreamForExportAsync(ExportFilter filter, CancellationToken ct = default)
         {
-            var query = _context.Orders.AsNoTracking();
-
-            if (filter.Status.HasValue)
-                query = query.Where(o => o.Status == filter.Status.Value);
-
-            if (filter.From.HasValue)
-                query = query.Where(o => o.DeliveryDate >= filter.From.Value);
-
-            if (filter.To.HasValue)
-                query = query.Where(o => o.DeliveryDate < filter.To.Value);
+            var query = _context.Orders.AsNoTracking()
+                .ApplyOrderFilters(filter.From, filter.To, filter.Status,
+                    filter.DateField, filter.ClientId, filter.IsPaid);
 
             return query
                 .OrderBy(o => o.DeliveryDate)
@@ -310,16 +289,9 @@ namespace DeuxERP.Infrastructure.Repositories
 
         public async Task<int> CountForExportAsync(ExportFilter filter, CancellationToken ct = default)
         {
-            var query = _context.Orders.AsNoTracking();
-
-            if (filter.Status.HasValue)
-                query = query.Where(o => o.Status == filter.Status.Value);
-
-            if (filter.From.HasValue)
-                query = query.Where(o => o.DeliveryDate >= filter.From.Value);
-
-            if (filter.To.HasValue)
-                query = query.Where(o => o.DeliveryDate < filter.To.Value);
+            var query = _context.Orders.AsNoTracking()
+                .ApplyOrderFilters(filter.From, filter.To, filter.Status,
+                    filter.DateField, filter.ClientId, filter.IsPaid);
 
             return await query
                 .SelectMany(o => o.Items.Where(i => !i.ItemCanceled))

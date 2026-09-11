@@ -8,6 +8,7 @@ namespace DeuxERP.Infrastructure.Repositories
 {
     public class DashboardRepository : IDashboardRepository
     {
+        private const int BusinessTimezoneOffsetHours = -3;
         private readonly ApplicationDbContext _context;
 
         public DashboardRepository(ApplicationDbContext context)
@@ -17,19 +18,10 @@ namespace DeuxERP.Infrastructure.Repositories
 
         private IQueryable<Order> ApplyFilters(DashboardFilter filter)
         {
-            var query = _context.Orders.AsNoTracking()
-                .Where(o => o.Status != OrderStatus.Canceled);
-
-            if (filter.StartDate.HasValue)
-                query = query.Where(o => o.DeliveryDate >= filter.StartDate.Value);
-
-            if (filter.EndDate.HasValue)
-                query = query.Where(o => o.DeliveryDate < filter.EndDate.Value);
-
-            if (filter.Status.HasValue)
-                query = query.Where(o => o.Status == filter.Status.Value);
-
-            return query;
+            return _context.Orders.AsNoTracking()
+                .Where(o => o.Status != OrderStatus.Canceled)
+                .ApplyOrderFilters(filter.StartDate, filter.EndDate, filter.Status,
+                    filter.DateField, filter.ClientId, filter.IsPaid);
         }
 
         public async Task<DashboardSummaryModel> GetSummaryAsync(DashboardFilter filter)
@@ -47,11 +39,9 @@ namespace DeuxERP.Infrastructure.Repositories
                 .FirstOrDefaultAsync();
 
             var canceledQuery = _context.Orders.AsNoTracking()
-                .Where(o => o.Status == OrderStatus.Canceled);
-            if (filter.StartDate.HasValue)
-                canceledQuery = canceledQuery.Where(o => o.DeliveryDate >= filter.StartDate.Value);
-            if (filter.EndDate.HasValue)
-                canceledQuery = canceledQuery.Where(o => o.DeliveryDate < filter.EndDate.Value);
+                .Where(o => o.Status == OrderStatus.Canceled)
+                .ApplyOrderFilters(filter.StartDate, filter.EndDate, null,
+                    filter.DateField, filter.ClientId, filter.IsPaid);
             var canceledOrders = await canceledQuery.CountAsync();
 
             if (result == null)
@@ -70,7 +60,8 @@ namespace DeuxERP.Infrastructure.Repositories
         public async Task<IEnumerable<RevenueDataPointModel>> GetRevenueOverTimeAsync(DashboardFilter filter)
         {
             var rawData = await ApplyFilters(filter)
-                .GroupBy(o => o.DeliveryDate.Date)
+                .GroupBy(o => (filter.DateField == OrderDateField.CreatedAt ? o.CreatedAt : o.DeliveryDate)
+                    .AddHours(BusinessTimezoneOffsetHours).Date)
                 .Select(g => new
                 {
                     Date = g.Key,

@@ -1,4 +1,5 @@
 using DeuxERP.API.Services;
+using DeuxERP.API.Models;
 using DeuxERP.Application.Common;
 using DeuxERP.Application.DTOs;
 using DeuxERP.Application.Mapping;
@@ -198,23 +199,17 @@ namespace DeuxERP.API.Controllers
 
         [HttpGet("all")]
         public async Task<IActionResult> GetAll(
+            [FromQuery] OrderPeriodQuery query,
             [FromQuery] int page = 1,
             [FromQuery] int size = 10,
-            [FromQuery] OrderStatus? status = null,
-            [FromQuery] DateTime? from = null,
-            [FromQuery] DateTime? to = null,
-            [FromQuery] string? search = null)
+            [FromQuery] string? search = null,
+            [FromQuery] Guid? productId = null)
         {
-            if (size > 100) size = 100;
-
-            var utcFrom = from.HasValue
-                ? DateTime.SpecifyKind(from.Value.Date, DateTimeKind.Utc)
-                : (DateTime?)null;
-            var utcTo = to.HasValue
-                ? DateTime.SpecifyKind(to.Value.Date, DateTimeKind.Utc)
-                : (DateTime?)null;
-
-            var result = await _repository.GetAllAsync(page, size, status, utcFrom, utcTo, search);
+            page = Math.Max(page, 1);
+            size = Math.Clamp(size, 1, 100);
+            var (utcFrom, utcTo, dateField) = query.ResolvePeriod();
+            var result = await _repository.GetAllAsync(page, size, query.Status, utcFrom, utcTo, search,
+                dateField, query.ClientId, query.IsPaid, productId);
 
             var dtos = result.Items.Select(order =>
                 order.ToResponse(order.Client?.Name ?? "Cliente não encontrado", order.Client?.Mobile, _storageService.GetSignedReadUrls(order.References))

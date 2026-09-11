@@ -453,7 +453,8 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet("{id}/stats")]
-    public async Task<IActionResult> GetStats(Guid id, [FromQuery] string month, CancellationToken ct)
+    public async Task<IActionResult> GetStats(Guid id, [FromQuery] string month, CancellationToken ct,
+        [FromQuery] OrderDateField dateField = OrderDateField.DeliveryDate)
     {
         if (string.IsNullOrWhiteSpace(month) ||
             !DateTime.TryParseExact(month, "yyyy-MM", System.Globalization.CultureInfo.InvariantCulture,
@@ -465,7 +466,7 @@ public class ProductController : ControllerBase
         var productExists = await _db.Products.AsNoTracking().AnyAsync(product => product.Id == id, ct);
         if (!productExists) return NotFound();
 
-        var stats = await _orderRepository.GetProductStatsAsync(id, parsed.Year, parsed.Month, ct);
+        var stats = await _orderRepository.GetProductStatsAsync(id, parsed.Year, parsed.Month, ct, dateField);
         return Ok(stats);
     }
 
